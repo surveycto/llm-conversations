@@ -1,11 +1,10 @@
 <div class="label default-question-text-size" dir="auto">{{{LABEL}}}</div>
 
-<!-- If there is an image specified in the media:image column, show it here -->
+<!-- Media support -->
 {{#MEDIAIMAGE}}
     <img src="{{MEDIAIMAGE}}" />
 {{/MEDIAIMAGE}}
 
-<!-- If there is audio specified in the media:audio column, show it here -->
 {{#MEDIAAUDIO}}
     <audio controls controlsList="nodownload">
         <source src="{{MEDIAAUDIO}}">
@@ -13,7 +12,6 @@
     </audio>
 {{/MEDIAAUDIO}}
 
-<!-- If there is a video specified in the media:video column, show it here -->
 {{#MEDIAVIDEO}}
     <video width="100%" height="*" controls controlsList="nodownload">
         <source src="{{MEDIAVIDEO}}">
@@ -23,32 +21,40 @@
 
 <div class="hint default-hint-text-size" dir="auto">{{{HINT}}}</div>
 
-<!-- If the field is marked read only, then only show the input box if there is a current answer. -->
-{{#READONLY}}
-    <input 
-        type="text" 
-        value="{{CURRENT_ANSWER}}" 
-        id="text-field" 
-        class="response default-answer-text-size" 
-        dir="auto"
-        readonly
-        {{^CURRENT_ANSWER}}style="display:none"{{/CURRENT_ANSWER}}
-    />
-{{/READONLY}}
+<!-- Chatbot Interface -->
+<div class="chatbot-container">
+    <!-- Conversation Display -->
+    <div class="conversation-display" id="conversation-display">
+        <!-- Welcome message will be generated dynamically by JavaScript -->
+    </div>
+    
+    <!-- Input Area -->
+    {{^READONLY}}
+    <div class="input-container">
+        <div class="input-wrapper">
+            <input 
+                type="text" 
+                id="user-input" 
+                class="user-input default-answer-text-size" 
+                placeholder="Type your message here..."
+                dir="auto"
+            />
+            <button id="send-button" class="send-button" type="button">Send</button>
+            <button id="clear-button" class="clear-button" type="button" style="display: none;">Clear</button>
+            <button id="complete-button" class="complete-button" type="button" style="display: none;" title="Mark conversation as complete">
+                ✓
+            </button>
+        </div>
+        <div class="loading-indicator" id="loading-indicator" style="display: none;">
+            <span>AI is thinking...</span>
+        </div>
+    </div>
+    {{/READONLY}}
+</div>
 
-<!-- if the field is not marked read only, show the input box always. -->
-{{^READONLY}}
-<input 
-    type="text" 
-    value="{{CURRENT_ANSWER}}" 
-    id="text-field" 
-    class="response default-answer-text-size" 
-    {{#QUESTION_PLACEHOLDER_LABEL}}
-      placeholder="{{QUESTION_PLACEHOLDER_LABEL}}"
-    {{/QUESTION_PLACEHOLDER_LABEL}}
-    {{^QUESTION_PLACEHOLDER_LABEL}}
-      placeholder="Your answer here..."
-    {{/QUESTION_PLACEHOLDER_LABEL}}
-    dir="auto"
-/>
-{{/READONLY}}
+<div class="suggested-prompts" id="suggested-prompts">
+    <!-- Dynamically populated from parameters -->
+</div>
+
+<!-- Hidden field to store conversation data -->
+<input type="hidden" id="conversation-data" value="{{CURRENT_ANSWER}}" />

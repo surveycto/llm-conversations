@@ -1,27 +1,366 @@
 .label {
-    /* add style rules here to change how the label appears */
     margin: .75rem 0;
 }
 
 .hint {
-    /* add style rules here to change how the hint appears */
     margin: .5rem 0;
     color: rgba(0,0,0,.65);
     font-style: italic;
 }
 
-.response {
-    /* add style rules here to change how the response appears */
-    width: 100%;
-    margin: .5rem 0;
-    padding: .5rem;
+.chatbot-container {
     border: 1px solid #047CC2;
-    box-sizing: border-box;
+    border-radius: 8px;
+    margin: .5rem 0;
+    background-color: #f9f9f9;
+    display: flex;
+    flex-direction: column;
+    height: 400px;
+    max-height: 400px; /* Prevent expansion */
+    min-height: 400px; /* Ensure minimum size */
+    overflow: hidden;
+    position: relative; /* Contain the layout */
 }
 
-.is-read-only .response {
-    /* this affects how the input appears when the field is marked read only */
+.conversation-display {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    background-color: white;
+    border-radius: 8px 8px 0 0;
+    box-sizing: border-box;
+    min-height: 0; /* Allows flex item to shrink properly */
+    max-height: calc(400px - 120px); /* Constrain height (total - input area) */
+    scroll-behavior: smooth;
+    scrollbar-width: thin;
+}
+
+/* Prevent body scroll when chatbot is scrolling */
+.chatbot-container:focus-within {
+    position: relative;
+}
+
+/* Custom scrollbar styling for WebKit browsers */
+.conversation-display::-webkit-scrollbar {
+    width: 6px;
+}
+
+.conversation-display::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.conversation-display::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+.conversation-display::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+.message {
+    margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.user-message {
+    align-items: flex-end;
+}
+
+.bot-message {
+    align-items: flex-start;
+}
+
+.message-content {
+    max-width: 80%;
+    padding: 0.75rem 1rem;
+    border-radius: 18px;
+    word-wrap: break-word;
+    word-break: break-word; /* Force word breaking */
+    line-height: 1.4;
+    overflow-wrap: break-word; /* Modern word breaking */
+}
+
+.user-message .message-content {
+    background-color: #047CC2;
+    color: white;
+    border-bottom-right-radius: 4px;
+}
+
+.bot-message .message-content {
+    background-color: #e9ecef;
+    color: #333;
+    border-bottom-left-radius: 4px;
+}
+
+.input-container {
+    border-top: 1px solid #ddd;
+    padding: 1rem;
+    background-color: #f9f9f9;
+    border-radius: 0 0 8px 8px;
+    flex-shrink: 0; /* Prevent shrinking */
+    min-height: 80px; /* Minimum height */
+    max-height: 120px; /* Maximum height */
+}
+
+.input-wrapper {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.user-input {
+    flex: 1;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 20px;
     outline: none;
+    font-size: 14px;
+}
+
+.user-input:focus {
+    border-color: #047CC2;
+}
+
+.send-button {
+    padding: 0.75rem 1.5rem;
+    background-color: #047CC2;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.send-button:hover {
+    background-color: #036aa8;
+}
+
+.send-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.clear-button {
+    padding: 0.75rem 1.5rem;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.clear-button:hover {
+    background-color: #c82333;
+}
+
+.clear-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.loading-indicator {
+    text-align: center;
+    margin-top: 0.5rem;
+    color: #666;
+    font-style: italic;
+    font-size: 14px;
+}
+
+.welcome-message {
+    margin-bottom: 0;
+    min-height: 60px; /* Ensure visibility */
+}
+
+.is-read-only .chatbot-container {
     background-color: rgba(0,0,0,.07);
     border: 1px solid rgba(0,0,0,.3);
+}
+
+.is-read-only .conversation-display {
+    background-color: rgba(0,0,0,.03);
+}
+
+.complete-button {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.complete-button:hover {
+    background-color: #218838;
+}
+
+.complete-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.suggested-prompts {
+    margin: 0.5rem 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.suggested-prompts button {
+    padding: 0.5rem 1rem;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 15px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.2s;
+}
+
+.suggested-prompts button:hover {
+    background-color: #e9ecef;
+}
+
+/* Ensure the entire plugin doesn't expand */
+.field-container {
+    max-height: 600px; /* Overall container constraint */
+    overflow: hidden;
+}
+
+/* Fix for SurveyCTO iframe behavior */
+body {
+    overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+/* Ensure the plugin container behaves properly */
+.plugin-container {
+    overflow: hidden;
+    position: relative;
+}
+
+/* Mobile responsiveness for height */
+@media (max-width: 480px) {
+    .chatbot-container {
+        height: 350px;
+        max-height: 350px;
+        min-height: 350px;
+    }
+    
+    .conversation-display {
+        max-height: calc(350px - 100px);
+    }
+    
+    .message-content {
+        max-width: 90%;
+    }
+    
+    .input-wrapper {
+        flex-direction: column;
+    }
+    
+    .send-button,
+    .clear-button {
+        align-self: flex-end;
+        width: auto;
+    }
+}
+
+/* Responsive design for larger screens */
+@media (min-width: 768px) {
+    .chatbot-container {
+        height: 450px;
+        max-height: 450px;
+        min-height: 450px;
+    }
+    
+    .conversation-display {
+        max-height: calc(450px - 120px);
+    }
+}
+
+/* High DPI display adjustments */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 2dppx) {
+    .conversation-display::-webkit-scrollbar {
+        width: 8px;
+    }
+}
+
+/* Focus states for accessibility */
+.user-input:focus,
+.send-button:focus,
+.clear-button:focus,
+.complete-button:focus {
+    outline: 2px solid #047CC2;
+    outline-offset: 2px;
+}
+
+.suggested-prompts button:focus {
+    outline: 2px solid #047CC2;
+    outline-offset: 2px;
+}
+
+/* Animation for message appearance */
+@keyframes messageSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.message-content.animate {
+    animation: messageSlideIn 0.3s ease-out;
+}
+
+/* Loading animation */
+@keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+
+.loading-indicator span {
+    animation: pulse 1.5s infinite;
+}
+
+/* Print styles */
+@media print {
+    .chatbot-container {
+        border: 1px solid #000;
+        background-color: #fff;
+        height: auto;
+        max-height: none;
+        min-height: auto;
+    }
+    
+    .input-container {
+        display: none;
+    }
+    
+    .conversation-display {
+        overflow: visible;
+        max-height: none;
+    }
+    
+    .clear-button,
+    .complete-button {
+        display: none;
+    }
 }

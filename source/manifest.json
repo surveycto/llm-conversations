@@ -1,8 +1,8 @@
 {
-	"name" : "Baseline text field",
-	"author" : "Dobility",
-	"version": "3.2.3",
-	"supportedFieldTypes": ["text"],
-	"hideDefaultRequiredMessage": false,
-	"hideDefaultConstraintMessage": false
+  "name": "OpenAI Chatbot Field",
+  "author": "Dobility",
+  "version": "1.0.1",
+  "supportedFieldTypes": ["text"],
+  "hideDefaultRequiredMessage": false,
+  "hideDefaultConstraintMessage": false
 }
