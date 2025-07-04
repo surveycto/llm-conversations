@@ -15,52 +15,42 @@ var loadingIndicator = document.getElementById('loading-indicator')
 var conversationData = document.getElementById('conversation-data')
 var suggestedPromptsContainer = document.getElementById('suggested-prompts')
 
-// Conversation state
-var conversation = []
-var languageEstablished = false // Track if user has established language preference
-
-// OpenAI configuration
+// Get parameters from SurveyCTO fields and plugin parameters
+var INTERVIEW_OUTLINE = getPluginParameter('outline') || ''
+var SELECTED_CASE = getPluginParameter('selected_case') || ''
+var SYSTEM_PROMPT_BASE = getPluginParameter('system_prompt') || ''
+var MEDICAL_CASES = getPluginParameter('medical_cases') || ''
+var OPENAI_MODEL = getPluginParameter('model') || 'gpt-4.1-mini-2025-04-14'
 var OPENAI_API_KEY = getPluginParameter('api-key') || ''
-var OPENAI_MODEL = getPluginParameter('model') || 'gpt-3.5-turbo'
-var CHAT_LANGUAGE = getPluginParameter('language') || 'English'
+var CLEAR_BUTTON_LABEL = getPluginParameter('clear-button-label') || '' // If empty, button is hidden
+var COMPLETE_BUTTON_LABEL = getPluginParameter('complete-button-label') || '✓' // Default checkmark
+var CLEAR_WARNING_TEXT = getPluginParameter('clear-warning-text') || 'Are you sure you want to clear the entire conversation? This action cannot be undone.'
+var COMPLETE_WARNING_TEXT = getPluginParameter('complete-warning-text') || 'Are you sure you want to complete this conversation? You will not be able to add more messages.'
 
-// Create system message for proper language flow
-var SYSTEM_MESSAGE = getPluginParameter('system-message') || createLanguageFlowSystemMessage()
-
-function createLanguageFlowSystemMessage() {
-    var baseMessage = `You are a helpful assistant. Here's how to handle language preferences:
-
-1. INITIAL LANGUAGE DETECTION: If this is the start of the conversation and the user hasn't clearly established a language preference yet, you should detect what language they want to use based on their first message.
-
-2. LANGUAGE PREFERENCE RESPONSES: 
-   - If the user asks for a specific language (e.g., "Spanish please", "En français", "Deutsch"), acknowledge their request and switch to that language immediately.
-   - If the user asks a question without specifying language, use English by default.
-   - If the user writes in a non-English language, respond in that same language.
-
-3. LANGUAGE SWITCHING: If at any point the user requests a different language, acknowledge the request and switch immediately.
-
-4. FORM HINT: The form suggests ${CHAT_LANGUAGE} as a preferred language, but the user's actual request takes priority.
-
-5. DEFAULT BEHAVIOR: If no specific language is requested, use English.
-
-Remember to be natural and conversational while handling these language preferences.`
-
-    return baseMessage
+// Interview state
+var interviewState = {
+    stage: 'initial',
+    messages: [],
+    caseData: null,
+    completeSystemPrompt: '',
+    initialized: false  // Add flag to prevent double initialization
 }
 
-// Initialize suggested prompts from parameters
-var SUGGESTED_PROMPTS = getPluginParameter('prompts') || ''
-if (SUGGESTED_PROMPTS) {
-    var prompts = SUGGESTED_PROMPTS.split('|')
-    prompts.forEach(function(prompt) {
-        var button = document.createElement('button')
-        button.textContent = prompt
-        button.onclick = function() { 
-            userInput.value = prompt
-            sendMessage()
-        }
-        suggestedPromptsContainer.appendChild(button)
-    })
+// Validate required parameters
+function validateParameters() {
+    var errors = []
+    
+    if (!OPENAI_API_KEY) {
+        errors.push('API key is required')
+    }
+    if (!MEDICAL_CASES) {
+        errors.push('Medical cases data is required')
+    }
+    if (!INTERVIEW_OUTLINE) {
+        errors.push('Interview outline is required')
+    }
+    
+    return errors
 }
 
 // Handle HTML entities in labels and hints
@@ -75,124 +65,71 @@ if (fieldProperties.HINT) {
     document.querySelector('.hint').innerHTML = unEntity(fieldProperties.HINT)
 }
 
-// Function to get the initial welcome message that asks about language preference
-function getWelcomeMessage() {
-    if (CHAT_LANGUAGE && CHAT_LANGUAGE !== 'English') {
-        return `Hello! I'm your AI assistant. I can communicate in many languages. I see you may prefer ${CHAT_LANGUAGE} - would you like to continue in ${CHAT_LANGUAGE}, or would you prefer a different language? Just let me know your preference and how I can help you today.`
-    }
-    return "Hello! I'm your AI assistant. I can communicate in many languages. What language would you prefer for our conversation? You can tell me in English or your preferred language (e.g., 'English please', 'Español por favor', 'Français s'il vous plaît'). If you'd like to continue in English, just let me know how I can help you."
-}
-
-// Function to immediately show the dynamic welcome message
-function showDynamicWelcomeMessage() {
+// Load case data directly from parameter
+function loadCaseFromParameter() {
     try {
-        console.log('Generating dynamic welcome message...')
-        var welcomeMessage = getWelcomeMessage()
-        console.log('Welcome message:', welcomeMessage)
+        console.log('Loading case from medical_cases parameter')
         
-        var welcomeHTML = '<div class="welcome-message"><div class="message bot-message"><div class="message-content">' + 
-                         welcomeMessage + '</div></div></div>'
+        if (!MEDICAL_CASES) {
+            throw new Error('No medical cases data provided in parameter')
+        }
         
         conversationDisplay.innerHTML = welcomeHTML
-        console.log('Dynamic welcome message displayed')
+        // The medical_cases parameter contains the complete case narrative
+        var caseData = {
+            case_type: SELECTED_CASE || 'Medical Case',
+            case_narrative: MEDICAL_CASES
+        }
         
-        // Ensure conversation array is empty for new conversation
-        conversation = []
-        languageEstablished = false
+        console.log('Case data loaded successfully:', caseData.case_type)
+        return caseData
         
     } catch (error) {
-        console.error('Error showing welcome message:', error)
-        // Last resort fallback
-        conversationDisplay.innerHTML = '<div class="welcome-message"><div class="message bot-message"><div class="message-content">Hello! I\'m your AI assistant. How can I help you today?</div></div></div>'
+        console.error('Error loading case from parameter:', error)
+        throw error
     }
 }
 
-// Update clear button visibility based on conversation state
-function updateClearButtonVisibility() {
-    if (clearButton) {
-        if (conversation.length > 0) {
-            clearButton.style.display = 'block'
-        } else {
-            clearButton.style.display = 'none'
-        }
-    }
+// Build complete system prompt combining all components
+function buildCompleteSystemPrompt(systemPromptBase, outline, caseNarrative) {
+    var completePrompt = `${systemPromptBase}
 
-    if (completeButton) {
-        if (conversation.length > 0) {
-            completeButton.style.display = 'block'
-        } else {
-            completeButton.style.display = 'none'
-        }
+${outline}
+
+### MEDICAL CASE TO SIMULATE:
+
+${caseNarrative}
+
+### FINAL INSTRUCTIONS:
+You must now embody this patient completely. Use the case narrative above to respond accurately to all provider questions. Follow the interview workflow outlined above, and use the structured Q&A responses when available.`
+
+    return completePrompt
+}
+
+// Extract basic patient info from narrative for introduction
+function extractPatientInfo(narrative) {
+    var nameMatch = narrative.match(/(\w+) is a (\d+)-year-old (woman|man)/i)
+    
+    // Look for opening statement more carefully
+    var openingMatch = narrative.match(/Opening [Ss]tatement:\s*(.+?)(?:\n|$)/i)
+    if (!openingMatch) {
+        // Alternative patterns for opening statement
+        openingMatch = narrative.match(/Opening [Ss]tatement[:\s]*(.+?)(?:\n|\[|Provider Questions)/i)
+    }
+    
+    return {
+        name: nameMatch ? nameMatch[1] : 'Patient',
+        age: nameMatch ? nameMatch[2] : 'unknown',
+        gender: nameMatch ? nameMatch[3] : 'patient',
+        openingStatement: openingMatch ? openingMatch[1].trim() : 'I need medical help.'
     }
 }
 
-// Enhanced renderConversation
-function renderConversation() {
-    try {
-        console.log('Rendering conversation...')
-        
-        // Clear current display
-        conversationDisplay.innerHTML = ''
-        
-        // Add welcome message if no conversation exists
-        if (conversation.length === 0) {
-            showDynamicWelcomeMessage()
-            return
-        }
-        
-        // Render all messages
-        conversation.forEach(function(message, index) {
-            console.log('Rendering message', index + 1, 'of', conversation.length)
-            addMessageToUI(message.role, message.content, false)
-        })
-        
-        // Scroll to bottom
-        conversationDisplay.scrollTop = conversationDisplay.scrollHeight
-        console.log('Conversation rendering complete')
-    } catch (error) {
-        console.error('Error rendering conversation:', error)
-        showDynamicWelcomeMessage()
-    }
-}
-
-// Add a message to the UI
-function addMessageToUI(role, content, animate) {
-    var messageDiv = document.createElement('div')
-    messageDiv.className = 'message ' + (role === 'user' ? 'user-message' : 'bot-message')
-    
-    var contentDiv = document.createElement('div')
-    contentDiv.className = 'message-content'
-    contentDiv.textContent = content
-    
-    messageDiv.appendChild(contentDiv)
-    conversationDisplay.appendChild(messageDiv)
-    
-    // Animate if requested
-    if (animate) {
-        contentDiv.style.opacity = '0'
-        contentDiv.style.transform = 'translateY(10px)'
-        setTimeout(function() {
-            contentDiv.style.transition = 'opacity 0.3s, transform 0.3s'
-            contentDiv.style.opacity = '1'
-            contentDiv.style.transform = 'translateY(0)'
-        }, 10)
-    }
-    
-    // Scroll to bottom
-    conversationDisplay.scrollTop = conversationDisplay.scrollHeight
-}
-
-// Send message to OpenAI
+// Send message to OpenAI with complete system prompt
 async function sendToOpenAI(messages) {
     if (!OPENAI_API_KEY) {
-        throw new Error('OpenAI API key not provided. Please set the "api-key" parameter.')
+        throw new Error('OpenAI API key not provided')
     }
-    
-    // Prepare messages with system message
-    var apiMessages = [
-        { role: 'system', content: SYSTEM_MESSAGE },
-        ...messages
-    ]
     
     var response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -202,7 +139,7 @@ async function sendToOpenAI(messages) {
         },
         body: JSON.stringify({
             model: OPENAI_MODEL,
-            messages: apiMessages,
+            messages: messages,
             max_tokens: 1000,
             temperature: 0.7
         })
@@ -217,108 +154,206 @@ async function sendToOpenAI(messages) {
     return data.choices[0].message.content
 }
 
+// Generate patient response using complete system prompt
+async function generatePatientResponse(providerQuestion) {
+    var messages = [
+        { role: 'system', content: interviewState.completeSystemPrompt },
+        ...interviewState.messages,
+        { role: 'user', content: providerQuestion }
+    ]
+    
+    return await sendToOpenAI(messages)
+}
+
+// Add message to UI with header-style labels
+function addMessageToUI(role, content, animate) {
+    var messageDiv = document.createElement('div')
+    var messageClass = 'message '
+    
+    if (role === 'system') {
+        messageClass += 'system-message'
+    } else if (role === 'user') {
+        messageClass += 'user-message'
+    } else {
+        messageClass += 'bot-message'
+    }
+    
+    messageDiv.className = messageClass
+    
+    // Add message header with speaker label
+    var headerDiv = document.createElement('div')
+    headerDiv.className = 'message-header'
+    
+    if (role === 'user') {
+        headerDiv.textContent = 'Provider:'
+    } else if (role === 'system') {
+        headerDiv.textContent = 'System:'
+    } else {
+        // For assistant messages, determine if it's nurse or patient
+        var patientName = 'Patient'
+        if (interviewState.caseData) {
+            var extractedInfo = extractPatientInfo(interviewState.caseData.case_narrative)
+            patientName = extractedInfo.name
+        }
+        
+        // Check if this looks like a nurse introduction or test result
+        if (content.includes('Hello Doctor') || 
+            content.includes('nurse performs') || 
+            content.includes('A nurse performs') ||
+            content.includes('test result') ||
+            content.includes('rapid test') ||
+            content.includes('The result is') ||
+            content.includes('blood pressure') ||
+            content.includes('temperature') ||
+            content.includes('pulse')) {
+            headerDiv.textContent = 'Nurse:'
+        } else {
+            headerDiv.textContent = patientName + ':'
+        }
+    }
+    
+    var contentDiv = document.createElement('div')
+    contentDiv.className = 'message-content'
+    contentDiv.textContent = content
+    
+    messageDiv.appendChild(headerDiv)
+    messageDiv.appendChild(contentDiv)
+    conversationDisplay.appendChild(messageDiv)
+    
+    if (animate) {
+        contentDiv.style.opacity = '0'
+        contentDiv.style.transform = 'translateY(10px)'
+        setTimeout(function() {
+            contentDiv.style.transition = 'opacity 0.3s, transform 0.3s'
+            contentDiv.style.opacity = '1'
+            contentDiv.style.transform = 'translateY(0)'
+        }, 10)
+    }
+    
+    conversationDisplay.scrollTop = conversationDisplay.scrollHeight
+}
+
 // Handle sending a message
 async function sendMessage() {
     var message = userInput.value.trim()
     if (!message) return
     
-    // Disable input and show loading
     userInput.disabled = true
     sendButton.disabled = true
-    if (clearButton) clearButton.disabled = true
     loadingIndicator.style.display = 'block'
     
     try {
-        // Add user message to conversation
-        conversation.push({ role: 'user', content: message })
+        // Add user message
+        interviewState.messages.push({ role: 'user', content: message })
         addMessageToUI('user', message, true)
-        
-        // Mark language as established after first user message
-        if (!languageEstablished) {
-            languageEstablished = true
-        }
-        
-        // Clear input
         userInput.value = ''
         
-        // Get AI response (LLM handles language detection and switching automatically)
-        var aiResponse = await sendToOpenAI(conversation)
+        // Generate AI response
+        var aiResponse = await generatePatientResponse(message)
         
-        // Add AI response to conversation
-        conversation.push({ role: 'assistant', content: aiResponse })
-        addMessageToUI('assistant', aiResponse, true)
+        // Check for end codes
+        if (aiResponse.includes('5j3k') || aiResponse.includes('x7y8')) {
+            handleInterviewEnd(aiResponse)
+        } else {
+            interviewState.messages.push({ role: 'assistant', content: aiResponse })
+            addMessageToUI('assistant', aiResponse, true)
+        }
         
-        // Save conversation and update UI
         saveConversation()
         updateClearButtonVisibility()
         
     } catch (error) {
         console.error('Error sending message:', error)
-        
-        // Add error message to UI
         var errorMessage = 'Sorry, I encountered an error: ' + error.message
-        conversation.push({ role: 'assistant', content: errorMessage })
         addMessageToUI('assistant', errorMessage, true)
-        
-        saveConversation()
-        updateClearButtonVisibility()
     } finally {
-        // Re-enable input
         userInput.disabled = false
         sendButton.disabled = false
-        if (clearButton) clearButton.disabled = false
         loadingIndicator.style.display = 'none'
         userInput.focus()
     }
 }
 
-// Handle clearing the conversation
-function clearConversation() {
-    if (conversation.length === 0) return
+// Handle interview end
+function handleInterviewEnd(response) {
+    console.log('Interview ending with response:', response)
     
-    // Confirm before clearing
+    var cleanResponse = response.replace(/5j3k|x7y8/g, '').trim()
+    
+    if (cleanResponse) {
+        addMessageToUI('assistant', cleanResponse, true)
+    }
+    
+    addMessageToUI('system', 'Thank you for participating, the interview concludes here.', true)
+    
+    userInput.disabled = true
+    sendButton.disabled = true
+    if (clearButton) clearButton.disabled = true
+    if (completeButton) completeButton.style.display = 'none'
+    
+    interviewState.stage = 'complete'
+    saveConversation()
+}
+
+// Clear conversation
+function clearConversation() {
+    if (interviewState.messages.length === 0) return
+    
     var confirmClear = confirm('Are you sure you want to clear the entire conversation? This action cannot be undone.')
     
     if (confirmClear) {
-        conversation = []
-        languageEstablished = false // Reset language state
+        interviewState.messages = []
         conversationData.value = ''
         setAnswer('')
         
-        // Show dynamic welcome message based on current language parameter
-        showDynamicWelcomeMessage()
-        
-        // Update clear button visibility
+        // Reset initialization flag and reinitialize
+        interviewState.initialized = false
+        initializeConversation()
         updateClearButtonVisibility()
         
-        // Focus on input
         if (userInput) {
             userInput.focus()
         }
     }
 }
 
-// Save conversation to field answer
+// Update button visibility
+function updateClearButtonVisibility() {
+    if (clearButton) {
+        clearButton.style.display = interviewState.messages.length > 0 ? 'block' : 'none'
+    }
+    if (completeButton) {
+        completeButton.style.display = interviewState.messages.length > 0 ? 'block' : 'none'
+    }
+}
+
+// Save conversation
 function saveConversation() {
-    var conversationString = JSON.stringify(conversation)
+    var conversationString = JSON.stringify(interviewState.messages)
     conversationData.value = conversationString
     setAnswer(conversationString)
 }
 
-// Clear conversation (called by SurveyCTO)
+// Complete conversation
+function completeConversation() {
+    interviewState.messages.push({ role: 'system', content: '__CONVERSATION_COMPLETED__' })
+    saveConversation()
+    
+    userInput.disabled = true
+    sendButton.disabled = true
+    completeButton.style.display = 'none'
+}
+
+// Clear answer (called by SurveyCTO)
 function clearAnswer() {
-    conversation = []
-    languageEstablished = false // Reset language state
+    interviewState.messages = []
     conversationData.value = ''
-    
-    // Show dynamic welcome message based on current language parameter
-    showDynamicWelcomeMessage()
-    
-    // Update clear button visibility
+    interviewState.initialized = false
+    initializeConversation()
     updateClearButtonVisibility()
 }
 
-// Set focus to input field
+// Set focus
 function setFocus() {
     if (!fieldProperties.READONLY && userInput) {
         userInput.focus()
@@ -328,71 +363,104 @@ function setFocus() {
     }
 }
 
-function completeConversation() {
-    // Mark conversation as complete
-    conversation.push({ role: 'system', content: '__CONVERSATION_COMPLETED__' })
-    saveConversation()
+// Setup case data without showing any messages
+function setupCaseData() {
+    console.log('Setting up case data...')
     
-    // Disable further input
-    userInput.disabled = true
-    sendButton.disabled = true
-    completeButton.style.display = 'none'
-}
-
-// Enhanced initialization with guaranteed welcome message
-function initializeConversation() {
-    try {
-        console.log('Initializing conversation...')
-        console.log('Language parameter:', CHAT_LANGUAGE)
-        
-        if (conversationData && conversationData.value) {
-            try {
-                conversation = JSON.parse(conversationData.value)
-                // If there's saved conversation, language has been established
-                if (conversation.length > 0) {
-                    languageEstablished = true
-                    console.log('Loaded saved conversation:', conversation.length, 'messages')
-                    renderConversation()
-                } else {
-                    console.log('Empty saved conversation, showing welcome message')
-                    showDynamicWelcomeMessage()
-                }
-            } catch (e) {
-                console.error('Error parsing saved conversation:', e)
-                conversation = []
-                languageEstablished = false
-                showDynamicWelcomeMessage()
-            }
-        } else {
-            console.log('No saved conversation, showing welcome message')
-            showDynamicWelcomeMessage()
-        }
-        
-        updateClearButtonVisibility()
-        console.log('Conversation initialization complete')
-    } catch (error) {
-        console.error('Error during initialization:', error)
-        // Ensure welcome message shows even if there's an error
-        showDynamicWelcomeMessage()
+    // Validate required parameters
+    var validationErrors = validateParameters()
+    if (validationErrors.length > 0) {
+        throw new Error('Missing required parameters: ' + validationErrors.join(', '))
     }
+    
+    // Load case data from parameter
+    var caseData = loadCaseFromParameter()
+    interviewState.caseData = caseData
+    
+    // Build complete system prompt
+    interviewState.completeSystemPrompt = buildCompleteSystemPrompt(
+        SYSTEM_PROMPT_BASE,
+        INTERVIEW_OUTLINE,
+        caseData.case_narrative
+    )
+    
+    interviewState.stage = 'initial'
+    console.log('Case data setup complete')
 }
 
-// Immediate initialization function
-function initializeFieldPlugin() {
-    console.log('Field plugin initializing...')
+// Show the initial nurse and patient messages
+function showInitialMessages() {
+    if (!interviewState.caseData) return
     
-    // Ensure all DOM elements are available
-    if (!conversationDisplay || !userInput || !sendButton) {
-        console.log('DOM elements not ready, retrying...')
-        setTimeout(initializeFieldPlugin, 10)
+    var patientInfo = extractPatientInfo(interviewState.caseData.case_narrative)
+    
+    // Show nurse introduction
+    var nurseIntro = `Hello Doctor, I have a ${patientInfo.gender} patient named ${patientInfo.name} here. Would you like to conduct the consultation in English, or would you prefer another language? Also, please let me know if you would like me to perform any rapid tests or clinical examinations during your evaluation. Please indicate when you are done with your questions and exams, then you can provide your diagnosis or treatment plan.`
+    
+    addMessageToUI('assistant', nurseIntro, false)
+    
+    // Show patient opening statement
+    addMessageToUI('assistant', patientInfo.openingStatement, false)
+}
+
+// Main initialization function - only runs once
+function initializeConversation() {
+    // Prevent double initialization
+    if (interviewState.initialized) {
+        console.log('Already initialized, skipping...')
         return
     }
     
-    console.log('DOM elements ready, proceeding with initialization')
-    initializeConversation()
+    try {
+        console.log('Initializing conversation...')
+        
+        // Setup case data first
+        setupCaseData()
+        
+        // Clear display
+        conversationDisplay.innerHTML = ''
+        
+        // Check if we have saved conversation data
+        var hasSavedData = conversationData && conversationData.value
+        var savedMessages = []
+        
+        if (hasSavedData) {
+            try {
+                savedMessages = JSON.parse(conversationData.value)
+                interviewState.messages = savedMessages
+                console.log('Loaded saved conversation with', savedMessages.length, 'messages')
+            } catch (e) {
+                console.error('Error parsing saved conversation:', e)
+                savedMessages = []
+                interviewState.messages = []
+            }
+        }
+        
+        // Always show initial messages first
+        showInitialMessages()
+        
+        // Then add any saved messages
+        if (savedMessages.length > 0) {
+            savedMessages.forEach(function(message) {
+                addMessageToUI(message.role, message.content, false)
+            })
+        }
+        
+        // Mark as initialized
+        interviewState.initialized = true
+        updateClearButtonVisibility()
+        
+        console.log('Conversation initialization complete')
+        
+    } catch (error) {
+        console.error('Error during initialization:', error)
+        conversationDisplay.innerHTML = ''
+        addMessageToUI('assistant', `Error initializing simulation: ${error.message}. Please check your parameters and try again.`, true)
+        interviewState.initialized = true // Mark as initialized even on error to prevent loops
+    }
 }
 
-// Event listeners
+// Event listeners (only if not readonly)
 if (!fieldProperties.READONLY) {
     sendButton.addEventListener('click', sendMessage)
     
@@ -412,30 +480,9 @@ if (!fieldProperties.READONLY) {
     })
 }
 
-// Start initialization immediately
+// Start initialization - only once
 console.log('Script loaded, starting initialization...')
+initializeConversation()
 
-// Try multiple initialization methods to ensure it works
-initializeFieldPlugin()
-
-// Backup initialization on DOM ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('DOM content loaded, backup initialization...')
-        setTimeout(initializeFieldPlugin, 50)
-    })
-} else {
-    console.log('DOM already ready, immediate backup initialization...')
-    setTimeout(initializeFieldPlugin, 10)
-}
-
-// Final backup after page load
-window.addEventListener('load', function() {
-    console.log('Window loaded, final backup initialization...')
-    setTimeout(function() {
-        if (!conversationDisplay.innerHTML.trim()) {
-            console.log('No content detected, forcing welcome message...')
-            showDynamicWelcomeMessage()
-        }
-    }, 100)
-})
+// Remove the backup initialization methods to prevent multiple calls
+// These were causing the duplicate messages
