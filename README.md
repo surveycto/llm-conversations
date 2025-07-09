@@ -1,4 +1,4 @@
-# Chatbot Demo Field Plugin
+# Chatbot Field Plugin
 
 ![Chatbot field plug-in interface](extras/preview.jpg)
 
@@ -75,26 +75,27 @@ This field plug-in requires the `text` field type and saves the complete intervi
 
 ### Required Parameters
 
-| Parameter key   | Parameter value                 | Description                                          |
-| --------------- | ------------------------------- | ---------------------------------------------------- |
-| `api-key`       | Your OpenAI API key             | **Required** - Get from OpenAI platform              |
-| `system_prompt` | Base system prompt              | **Required** - Core AI behavior instructions         |
-| `outline`       | Interview workflow instructions | **Required** - Structured interview phase guidelines |
-| `medical_cases` | Case narrative data             | **Required** - Patient case background and Q&A pairs |
+| Parameter key   | Parameter value     | Description                                          |
+| --------------- | ------------------- | ---------------------------------------------------- |
+| `api-key`       | Your OpenAI API key | **Required** - Get from OpenAI platform              |
+| `system_prompt` | Base system prompt  | **Required** - Core AI behavior instructions         |
+| `case_data`     | Case narrative data | **Required** - Patient case background and Q&A pairs |
 
 ### Optional Parameters
 
-| Parameter key           | Parameter value            | Description                                                                                 |
-| ----------------------- | -------------------------- | ------------------------------------------------------------------------------------------- |
-| `model`                 | OpenAI model name          | Optional - Defaults to 'gpt-4.1-mini-2025-04-14'                                            |
-| `language`              | Target language            | Optional - Defaults to 'English', supports medical translation                              |
-| `selected_case`         | Case identifier            | Optional - For case library systems                                                         |
-| `suggested-prompts`     | Pipe-separated prompt list | Optional - Medical question buttons (e.g., "Check vital signs\|Examine chest\|Order tests") |
-| `end-message`           | Custom completion message  | Optional - Personalized interview conclusion                                                |
-| `clear-button-label`    | Button text                | Optional - If provided, shows clear button with this label                                  |
-| `complete-button-label` | Button text                | Optional - Label for complete button (defaults to ✓)                                        |
-| `clear-warning-text`    | Warning message            | Optional - Custom warning when clearing conversation                                        |
-| `complete-warning-text` | Warning message            | Optional - Custom warning when completing interview                                         |
+| Parameter key           | Parameter value                 | Description                                                                                  |
+| ----------------------- | ------------------------------- | -------------------------------------------------------------------------------------------- |
+| `outline`               | Interview workflow instructions | Optional - Structured interview phase guidelines                                             |
+| `model`                 | OpenAI model name               | Optional - Defaults to 'gpt-4o-mini'                                                         |
+| `language`              | Target language                 | Optional - Defaults to 'English', supports medical translation                               |
+| `selected_case`         | Case identifier                 | Optional - For case library systems                                                          |
+| `timeout`               | Seconds (integer)               | Optional - Auto-lock after inactivity (default: 600 seconds/10 minutes, set to 0 to disable) |
+| `suggested-prompts`     | Pipe-separated prompt list      | Optional - Medical question buttons (e.g., "Check vital signs\|Examine chest\|Order tests")  |
+| `end-message`           | Custom completion message       | Optional - Personalized interview conclusion                                                 |
+| `clear-button-label`    | Button text                     | Optional - If provided, shows clear button with this label                                   |
+| `complete-button-label` | Button text                     | Optional - Label for complete button (defaults to ✓)                                         |
+| `clear-warning-text`    | Warning message                 | Optional - Custom warning when clearing conversation                                         |
+| `complete-warning-text` | Warning message                 | Optional - Custom warning when completing interview                                          |
 
 ### Setup Instructions
 
@@ -118,16 +119,35 @@ This field plug-in requires the `text` field type and saves the complete intervi
 ### Example Field Configuration
 
 ```
-custom-medical-interview(
+custom-chatbot(
     api-key=your_openai_api_key_here;
-    system_prompt="You are simulating a standardized patient...";
-    outline="Conduct structured medical interview phases...";
-    medical_cases="Angela is a 24-year-old woman with breathing difficulties...";
+    system_prompt="You are simulating a standardized patient for medical training...";
+    outline="Conduct structured medical interview phases: History → Examination → Diagnosis → Treatment";
+    medical_cases="Angela is a 24-year-old woman presenting with breathing difficulties...";
     language=English;
+    timeout=300;
     suggested-prompts=Tell me about your symptoms|When did this start?|Any family history?|Let me examine your chest;
     end-message=Thank you for completing this medical consultation.
 )
+
 ```
+
+### Session Management
+
+**Timeout Behavior:**
+
+- Sessions automatically lock after 10 minutes of inactivity by default
+- Timeout can be customized or disabled via the `timeout` parameter
+- Inactivity includes time spent on other form fields
+- Timeout state persists across form navigation
+- Clear button resets timeout state
+
+**Input Preservation:**
+
+- Typed but unsubmitted text is automatically saved
+- Input is restored when returning to the field
+- Cleared when message is successfully sent
+- Cleared when conversation is cleared
 
 ### Default SurveyCTO feature support
 

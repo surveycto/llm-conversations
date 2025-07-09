@@ -1,7 +1,7 @@
 {
-  "name": "OpenAI Chatbot Field",
+  "name": "Chatbot",
   "author": "Dobility",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "supportedFieldTypes": ["text"],
   "hideDefaultRequiredMessage": false,
   "hideDefaultConstraintMessage": false

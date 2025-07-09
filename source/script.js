@@ -48,6 +48,10 @@ var medicalState = {
 
 var INPUT_SAVE_KEY = 'chatbot_unsent_input'
 var fieldName = fieldProperties.FIELD_NAME || 'chatbot_field'
+var TIMEOUT_SECONDS = getPluginParameter('timeout') || 600
+var timeoutTimer = null
+var lastActivityTime = Date.now()
+var isTimedOut = false
 
 // Validate required parameters
 function validateMedicalParameters() {
@@ -158,9 +162,21 @@ ${qaSection}
 - Only reveal information that has been explicitly asked for by the provider`
     }
 
-    var completePrompt = `${systemPromptBase}
+    // Build the complete prompt - conditionally include outline
+    var completePrompt = systemPromptBase
+    
+    // Add outline only if it's provided and not empty
+    if (outline && outline.trim().length > 0) {
+        completePrompt += `
 
-${outline}${languageInstruction}
+${outline}`
+    }
+    
+    // Add language instruction if provided
+    completePrompt += languageInstruction
+
+    // Add the rest of the prompt
+    completePrompt += `
 
 ### MEDICAL INTERVIEW PHASES:
 This medical interview follows structured phases:
@@ -615,7 +631,6 @@ async function generatePatientResponse(providerQuestion) {
     return aiResponse
 }
 
-
 // Add message to UI with medical role detection
 function addMessageToUI(role, content, animate, speaker) {
     var messageDiv = document.createElement('div')
@@ -689,6 +704,11 @@ function addMessageToUI(role, content, animate, speaker) {
 // Handle sending a message
 async function sendMessage() {
     var message = userInput.value.trim()
+
+    if (isTimedOut) {
+        console.log('Message blocked - session timed out')
+        return
+    }
 
     if (message.toLowerCase() === 'quit') {
         handleMedicalInterviewEnd('Interview ended by provider.', { detected: true, code: 'x7y8', type: 'user_quit' })
@@ -859,6 +879,11 @@ function clearAnswer() {
     
     initializeMedicalConversation()
     updateClearButtonVisibility()
+    isTimedOut = false
+    stopActivityTimer()
+    if (TIMEOUT_SECONDS > 0 && !fieldProperties.READONLY) {
+        resetActivityTimer()
+    }
 }
 
 // Set focus
@@ -967,6 +992,67 @@ function clearUnsentInput() {
     var storageKey = INPUT_SAVE_KEY + '_' + fieldName
     sessionStorage.removeItem(storageKey)
     console.log('Cleared unsent input from storage')
+}
+
+function resetActivityTimer() {
+    lastActivityTime = Date.now()
+    
+    // Don't reset timer if already timed out or if timeout is disabled
+    if (isTimedOut || TIMEOUT_SECONDS <= 0 || userInput.disabled) {
+        return
+    }
+    
+    // Clear existing timer
+    if (timeoutTimer) {
+        clearTimeout(timeoutTimer)
+        timeoutTimer = null
+    }
+    
+    // Set new timer
+    timeoutTimer = setTimeout(function() {
+        handleTimeout()
+    }, TIMEOUT_SECONDS * 1000)
+    
+    console.log('Activity timer reset. Timeout in', TIMEOUT_SECONDS, 'seconds')
+}
+
+function handleTimeout() {
+    console.log('Interaction timed out after', TIMEOUT_SECONDS, 'seconds of inactivity')
+    
+    isTimedOut = true
+    
+    // Add timeout message to conversation
+    var timeoutMessage = `Session timed out after ${TIMEOUT_SECONDS} seconds of inactivity. Interaction has been locked.`
+    addMessageToUI('system', timeoutMessage, true, 'System')
+    
+    // Disable all input controls
+    userInput.disabled = true
+    sendButton.disabled = true
+    if (clearButton) clearButton.disabled = true
+    if (completeButton) completeButton.style.display = 'none'
+    
+    // Update input placeholder
+    userInput.placeholder = 'Session timed out - interaction locked'
+    
+    // Save timeout state to conversation
+    medicalState.messages.push({ role: 'system', content: '__SESSION_TIMEOUT__' })
+    saveConversation()
+    
+    // Stop the timer
+    stopActivityTimer()
+}
+
+function stopActivityTimer() {
+    if (timeoutTimer) {
+        clearTimeout(timeoutTimer)
+        timeoutTimer = null
+        console.log('Activity timer stopped')
+    }
+}
+
+function checkIfTimedOut() {
+    // Check if conversation contains timeout marker
+    return medicalState.messages.some(msg => msg.content === '__SESSION_TIMEOUT__')
 }
 
 // Show medical language selection prompt
@@ -1138,10 +1224,24 @@ async function initializeMedicalConversation() {
             }
         }
         
-        medicalState.initialized = true
-        updateClearButtonVisibility()
-        // Restore any unsent input from previous session
-        restoreUnsentInput()
+        // Check if session was previously timed out
+        if (checkIfTimedOut()) {
+            isTimedOut = true
+            userInput.disabled = true
+            sendButton.disabled = true
+            if (clearButton) clearButton.disabled = true
+            if (completeButton) completeButton.style.display = 'none'
+            userInput.placeholder = 'Session timed out - interaction locked'
+            console.log('Session was previously timed out, keeping controls disabled')
+        } else {
+            // Start timeout timer for new/active sessions
+            if (TIMEOUT_SECONDS > 0 && !fieldProperties.READONLY) {
+                resetActivityTimer()
+            }
+            
+            // Restore any unsent input from previous session
+            restoreUnsentInput()
+        }
         
         console.log('Medical conversation initialization complete')
         
@@ -1187,6 +1287,61 @@ if (!fieldProperties.READONLY && userInput) {
     
     // Save input when user presses keys (for additional safety)
     userInput.addEventListener('keyup', saveUnsentInput)
+}
+
+// Timeout functionality - track user activity
+if (TIMEOUT_SECONDS > 0 && !fieldProperties.READONLY) {
+    console.log('Timeout functionality enabled:', TIMEOUT_SECONDS, 'seconds')
+    
+    // Track user input activity
+    userInput.addEventListener('input', resetActivityTimer)
+    userInput.addEventListener('keypress', resetActivityTimer)
+    userInput.addEventListener('keydown', resetActivityTimer)
+    userInput.addEventListener('focus', resetActivityTimer)
+    
+    // Track button clicks
+    sendButton.addEventListener('click', resetActivityTimer)
+    if (clearButton) {
+        clearButton.addEventListener('click', resetActivityTimer)
+    }
+    if (completeButton) {
+        completeButton.addEventListener('click', resetActivityTimer)
+    }
+    
+    // Track suggested prompt clicks
+    if (suggestedPromptsContainer) {
+        suggestedPromptsContainer.addEventListener('click', resetActivityTimer)
+    }
+}
+
+// Handle page visibility changes for timeout
+if (TIMEOUT_SECONDS > 0) {
+    document.addEventListener('visibilitychange', function() {
+        if (isTimedOut) {
+            return // Don't reset timer if already timed out
+        }
+        
+        if (document.hidden) {
+            // Page is hidden, stop timer but don't reset activity time
+            console.log('Page hidden, stopping activity timer')
+            stopActivityTimer()
+        } else {
+            // Page is visible, restart timer from last activity
+            console.log('Page visible, restarting activity timer')
+            var timeSinceLastActivity = Date.now() - lastActivityTime
+            var remainingTime = (TIMEOUT_SECONDS * 1000) - timeSinceLastActivity
+            
+            if (remainingTime <= 0) {
+                // Should have already timed out
+                handleTimeout()
+            } else {
+                // Restart timer with remaining time
+                timeoutTimer = setTimeout(function() {
+                    handleTimeout()
+                }, remainingTime)
+            }
+        }
+    })
 }
 
 window.addEventListener('beforeunload', function() {
