@@ -40,9 +40,11 @@
                 dir="auto"
             />
             <button id="send-button" class="send-button" type="button">Send</button>
-            <button id="clear-button" class="clear-button" type="button" style="display: none;">Clear</button>
-            <button id="complete-button" class="complete-button" type="button" style="display: none;" title="Mark conversation as complete">
-                ✓
+            <button id="clear-button" class="clear-button" type="button" style="display: none;">
+                <span id="clear-button-text">Clear</span>
+            </button>
+            <button id="complete-button" class="complete-button" type="button" style="display: none;" title="Complete conversation">
+                <span id="complete-button-text">✓</span>
             </button>
         </div>
         <div class="loading-indicator" id="loading-indicator" style="display: none;">
