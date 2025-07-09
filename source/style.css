@@ -15,11 +15,11 @@
     background-color: #f9f9f9;
     display: flex;
     flex-direction: column;
-    height: 400px;
-    max-height: 400px; /* Prevent expansion */
-    min-height: 400px; /* Ensure minimum size */
+    height: 600px; 
+    max-height: 600px; 
+    min-height: 600px;
     overflow: hidden;
-    position: relative; /* Contain the layout */
+    position: relative;
 }
 
 .conversation-display {
@@ -29,10 +29,12 @@
     background-color: white;
     border-radius: 8px 8px 0 0;
     box-sizing: border-box;
-    min-height: 0; /* Allows flex item to shrink properly */
-    max-height: calc(400px - 120px); /* Constrain height (total - input area) */
+    min-height: 0;
+    max-height: calc(600px - 100px);
     scroll-behavior: smooth;
     scrollbar-width: thin;
+    overflow-x: hidden;
+    word-wrap: break-word;
 }
 
 /* Prevent body scroll when chatbot is scrolling */
@@ -78,9 +80,11 @@
     padding: 0.75rem 1rem;
     border-radius: 18px;
     word-wrap: break-word;
-    word-break: break-word; /* Force word breaking */
+    word-break: break-word;
     line-height: 1.4;
-    overflow-wrap: break-word; /* Modern word breaking */
+    overflow-wrap: break-word;
+    max-width: calc(100% - 2rem);
+    box-sizing: border-box;
 }
 
 .user-message .message-content {
@@ -188,21 +192,22 @@
 }
 
 .complete-button {
-    width: 36px;
+    min-width: 36px;
     height: 36px;
-    padding: 0;
+    padding: 0 8px; /* ADD horizontal padding for text */
     background-color: #28a745;
     color: white;
     border: none;
-    border-radius: 50%;
+    border-radius: 18px; /* CHANGED from 50% to accommodate text */
     cursor: pointer;
-    font-size: 16px;
+    font-size: 14px; /* ADJUSTED for text */
     font-weight: bold;
     transition: background-color 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    white-space: nowrap; /* Prevent text wrapping */
 }
 
 .complete-button:hover {
@@ -255,13 +260,13 @@ body {
 /* Mobile responsiveness for height */
 @media (max-width: 480px) {
     .chatbot-container {
-        height: 350px;
-        max-height: 350px;
-        min-height: 350px;
+        height: 450px;
+        max-height: 450px;
+        min-height: 450px;
     }
     
     .conversation-display {
-        max-height: calc(350px - 100px);
+        max-height: calc(450px - 100px);
     }
     
     .message-content {
@@ -282,13 +287,13 @@ body {
 /* Responsive design for larger screens */
 @media (min-width: 768px) {
     .chatbot-container {
-        height: 450px;
-        max-height: 450px;
-        min-height: 450px;
+        height: 550px;
+        max-height: 550px;
+        min-height: 550px;
     }
     
     .conversation-display {
-        max-height: calc(450px - 120px);
+        max-height: calc(550px - 120px);
     }
 }
 

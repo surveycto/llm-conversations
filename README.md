@@ -10,42 +10,91 @@ An interactive chatbot field plugin that integrates with OpenAI's API to provide
 
 ### Features
 
-This field plug-in offers the following functionality:
+This field plug-in offers comprehensive medical interview simulation:
 
-1. **OpenAI Integration** Connects to OpenAI's API to provide intelligent conversational responses using configurable models (default: gpt-3.5-turbo).
+1. **Structured Interview Phases**  
+   Automatic progression through History Taking → Physical Examination → Diagnosis → Treatment phases with intelligent phase detection and transitions.
 
-2. **Multi-language Support** Supports conversations in multiple languages with automatic language detection and preference handling.
+2. **Standardized Patient Simulation**  
+   AI-powered patient responses based on detailed medical case narratives with consistent, case-specific answers to provider questions.
 
-3. **Conversation Management** <br>
+3. **Physical Examination & Laboratory Simulation**  
+   Realistic examination results and laboratory tests extracted from case data, with nurse-mediated test administration.
 
-   - Send messages to the AI assistant
-   - Clear conversation history
-   - Complete and save conversation data
-   - Loading indicators for API calls
+4. **Case-Specific Structured Q&A**  
+   Prioritizes exact answers from structured Q&A pairs when available, with AI improvisation for unstructured questions.
 
-4. **Cross-platform Compatibility** Works across SurveyCTO's web, Android, and iOS data collection platforms.
+5. **Multi-language Medical Interviews**  
+   Conducts interviews in multiple languages with medical terminology translation and culturally appropriate responses.
 
-5. **Configurable System Messages** Customize the AI assistant's behavior and language handling through system message parameters.
+6. **Role-Based Message Classification**  
+   Distinguishes between Provider, Patient, Nurse, and System messages with appropriate visual labeling.
 
-### Data format
+7. **Suggested Medical Prompts**  
+   Customizable prompt buttons for common medical questions and examination requests.
 
-This field plug-in requires the `text` field type and saves the complete conversation history as JSON data.
+8. **Advanced Conversation Management**  
+   Save interview transcripts, clear conversations, mark completion, with custom end messages and warnings.
+
+### Medical Interview Workflow
+
+The plugin follows a structured medical interview process:
+
+**Phase 1: History Taking**
+
+- Patient presents chief complaint
+- Provider asks symptom-specific questions
+- AI responds with case-specific answers from Q&A pairs or narrative
+
+**Phase 2: Physical Examination**
+
+- Provider requests examinations or tests
+- Nurse performs procedures and reports results
+- Automatic transition to examination phase
+
+**Phase 3: Diagnosis**
+
+- Provider presents preliminary diagnosis
+- System prompts for treatment discussion
+- Transition to treatment phase
+
+**Phase 4: Treatment**
+
+- Provider discusses treatment plan
+- Interview concludes with end codes or completion
+
+### Data Format
+
+This field plug-in requires the `text` field type and saves the complete interview transcript as JSON data including all provider questions, patient responses, examination results, and phase transitions.
 
 ## How to use
 
 ### Getting started
 
-**To use this plug-in**, download the plugin file, configure the required parameters, and attach it to your form with the appropriate field appearance.
+**To use this plug-in**, download the plugin file, configure the required medical case parameters, and attach it to your form with the appropriate field appearance.
 
-### Parameters
+### Required Parameters
 
-| Parameter key    | Parameter value                 | Description                                                    |
-| ---------------- | ------------------------------- | -------------------------------------------------------------- |
-| `api-key`        | Your OpenAI API key             | **Required** - Get from OpenAI platform                        |
-| `model`          | OpenAI model name               | Optional - Defaults to 'gpt-3.5-turbo'                         |
-| `language`       | Language preference             | Optional - Defaults to 'English'                               |
-| `system-message` | Custom system prompt            | Optional - Overrides default language flow system message      |
-| `prompts`        | Suggested conversation starters | Optional - Pipe-separated list of suggested prompts to display |
+| Parameter key   | Parameter value                 | Description                                          |
+| --------------- | ------------------------------- | ---------------------------------------------------- |
+| `api-key`       | Your OpenAI API key             | **Required** - Get from OpenAI platform              |
+| `system_prompt` | Base system prompt              | **Required** - Core AI behavior instructions         |
+| `outline`       | Interview workflow instructions | **Required** - Structured interview phase guidelines |
+| `medical_cases` | Case narrative data             | **Required** - Patient case background and Q&A pairs |
+
+### Optional Parameters
+
+| Parameter key           | Parameter value            | Description                                                                                 |
+| ----------------------- | -------------------------- | ------------------------------------------------------------------------------------------- |
+| `model`                 | OpenAI model name          | Optional - Defaults to 'gpt-4.1-mini-2025-04-14'                                            |
+| `language`              | Target language            | Optional - Defaults to 'English', supports medical translation                              |
+| `selected_case`         | Case identifier            | Optional - For case library systems                                                         |
+| `suggested-prompts`     | Pipe-separated prompt list | Optional - Medical question buttons (e.g., "Check vital signs\|Examine chest\|Order tests") |
+| `end-message`           | Custom completion message  | Optional - Personalized interview conclusion                                                |
+| `clear-button-label`    | Button text                | Optional - If provided, shows clear button with this label                                  |
+| `complete-button-label` | Button text                | Optional - Label for complete button (defaults to ✓)                                        |
+| `clear-warning-text`    | Warning message            | Optional - Custom warning when clearing conversation                                        |
+| `complete-warning-text` | Warning message            | Optional - Custom warning when completing interview                                         |
 
 ### Setup Instructions
 
@@ -69,8 +118,15 @@ This field plug-in requires the `text` field type and saves the complete convers
 ### Example Field Configuration
 
 ```
-custom-chatbot-demo(api-key=your_openai_api_key_here;model=gpt-4;language=English)
-
+custom-medical-interview(
+    api-key=your_openai_api_key_here;
+    system_prompt="You are simulating a standardized patient...";
+    outline="Conduct structured medical interview phases...";
+    medical_cases="Angela is a 24-year-old woman with breathing difficulties...";
+    language=English;
+    suggested-prompts=Tell me about your symptoms|When did this start?|Any family history?|Let me examine your chest;
+    end-message=Thank you for completing this medical consultation.
+)
 ```
 
 ### Default SurveyCTO feature support
