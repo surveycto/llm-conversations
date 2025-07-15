@@ -15,9 +15,9 @@
     background-color: #f9f9f9;
     display: flex;
     flex-direction: column;
-    height: 600px; 
-    max-height: 600px; 
-    min-height: 600px;
+    height: 800px; 
+    max-height: 800px; 
+    min-height: 800px;
     overflow: hidden;
     position: relative;
 }
@@ -30,7 +30,7 @@
     border-radius: 8px 8px 0 0;
     box-sizing: border-box;
     min-height: 0;
-    max-height: calc(600px - 100px);
+    max-height: calc(800px - 100px);
     scroll-behavior: smooth;
     scrollbar-width: thin;
     overflow-x: hidden;
@@ -287,13 +287,13 @@ body {
 /* Responsive design for larger screens */
 @media (min-width: 768px) {
     .chatbot-container {
-        height: 550px;
-        max-height: 550px;
-        min-height: 550px;
+        height: 800px;
+        max-height: 800px;
+        min-height: 800px;
     }
     
     .conversation-display {
-        max-height: calc(550px - 120px);
+        max-height: calc(800px - 120px);
     }
 }
 

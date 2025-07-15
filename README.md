@@ -4,98 +4,94 @@
 
 ## Description
 
-An interactive chatbot field plugin that integrates with OpenAI's API to provide conversational AI capabilities within SurveyCTO forms. This plugin allows users to have natural language conversations with an AI assistant and saves the conversation data for analysis.
+A flexible conversational AI field plugin that integrates with OpenAI's API to provide customizable chatbot interactions within SurveyCTO forms. This plugin is completely prompt-driven and can adapt to any business case or workflow based on the system prompt provided.
 
 [![Download now](extras/download-button.png)](https://github.com/surveycto/chatbot-demo/raw/master/chatbot-demo.fieldplugin.zip)
 
 ### Features
 
-This field plug-in offers comprehensive medical interview simulation:
+This field plug-in offers comprehensive conversational AI capabilities:
 
-1. **Structured Interview Phases**  
-   Automatic progression through History Taking → Physical Examination → Diagnosis → Treatment phases with intelligent phase detection and transitions.
+1. **Completely Flexible and Prompt-Driven**  
+   Adapts to any business case, workflow, or conversational scenario based on the system prompt provided. No hardcoded business logic.
 
-2. **Standardized Patient Simulation**  
-   AI-powered patient responses based on detailed medical case narratives with consistent, case-specific answers to provider questions.
+2. **Dual-Parameter System**  
+   Supports both `system_prompt` (core instructions) and `case_data` (specific context/scenarios) parameters for organized prompt management.
 
-3. **Physical Examination & Laboratory Simulation**  
-   Realistic examination results and laboratory tests extracted from case data, with nurse-mediated test administration.
+3. **Flexible End Code Detection**  
+   Automatically detects conversation completion codes (`5j3k`, `x7y8`, `END_CONVERSATION`, etc.) with flexible pattern matching.
 
-4. **Case-Specific Structured Q&A**  
-   Prioritizes exact answers from structured Q&A pairs when available, with AI improvisation for unstructured questions.
+4. **Advanced Conversation Management**  
+   Save conversation transcripts, clear conversations, mark completion, with customizable end messages and warnings.
 
-5. **Multi-language Medical Interviews**  
-   Conducts interviews in multiple languages with medical terminology translation and culturally appropriate responses.
+5. **Timeout and Session Management**  
+   Configurable session timeouts with automatic locking, input preservation, and timeout state persistence.
 
-6. **Role-Based Message Classification**  
-   Distinguishes between Provider, Patient, Nurse, and System messages with appropriate visual labeling.
+6. **Customizable Conversation Starters**  
+   Control how conversations begin with the `conversation-starter` parameter.
 
-7. **Suggested Medical Prompts**  
-   Customizable prompt buttons for common medical questions and examination requests.
+7. **Suggested Prompts Support**  
+   Configurable prompt buttons for common questions or actions relevant to your use case.
 
-8. **Advanced Conversation Management**  
-   Save interview transcripts, clear conversations, mark completion, with custom end messages and warnings.
+8. **Multi-Language Support**  
+   Works with any language supported by OpenAI's models when configured in the system prompt.
 
-### Medical Interview Workflow
+9. **Role-Based Interactions**  
+   Supports role-switching and character-based conversations when specified in the system prompt.
 
-The plugin follows a structured medical interview process:
+10. **Robust Error Handling**  
+    Graceful handling of API errors, network issues, and conversation state problems.
 
-**Phase 1: History Taking**
+### Conversation Workflow
 
-- Patient presents chief complaint
-- Provider asks symptom-specific questions
-- AI responds with case-specific answers from Q&A pairs or narrative
+The plugin follows a completely flexible workflow determined by your system prompt:
 
-**Phase 2: Physical Examination**
+**Generic Flow:**
 
-- Provider requests examinations or tests
-- Nurse performs procedures and reports results
-- Automatic transition to examination phase
+1. **Initialization** - AI generates opening message based on system prompt and conversation starter
+2. **Interactive Exchange** - User and AI exchange messages according to prompt instructions
+3. **Completion Detection** - Plugin detects end codes or completion signals from AI responses
+4. **Conversation Conclusion** - Session ends with customizable completion message
 
-**Phase 3: Diagnosis**
+**Example Use Cases:**
 
-- Provider presents preliminary diagnosis
-- System prompts for treatment discussion
-- Transition to treatment phase
-
-**Phase 4: Treatment**
-
-- Provider discusses treatment plan
-- Interview concludes with end codes or completion
+- **Medical Interviews**: Standardized patient simulations with structured phases
+- **Customer Service**: Support conversations with escalation workflows
+- **Research Interviews**: Structured data collection with follow-up questions
+- **Training Simulations**: Role-playing scenarios for skill development
+- **Educational Conversations**: Tutoring or Q&A sessions with adaptive responses
 
 ### Data Format
 
-This field plug-in requires the `text` field type and saves the complete interview transcript as JSON data including all provider questions, patient responses, examination results, and phase transitions.
+This field plug-in requires the `text` field type and saves the complete conversation transcript as JSON data including all user inputs, AI responses, and system messages.
 
 ## How to use
 
 ### Getting started
 
-**To use this plug-in**, download the plugin file, configure the required medical case parameters, and attach it to your form with the appropriate field appearance.
+**To use this plug-in**, download the plugin file, configure the required parameters, and attach it to your form with the appropriate field appearance.
 
 ### Required Parameters
 
-| Parameter key   | Parameter value     | Description                                          |
-| --------------- | ------------------- | ---------------------------------------------------- |
-| `api-key`       | Your OpenAI API key | **Required** - Get from OpenAI platform              |
-| `system_prompt` | Base system prompt  | **Required** - Core AI behavior instructions         |
-| `case_data`     | Case narrative data | **Required** - Patient case background and Q&A pairs |
+| Parameter key   | Parameter value      | Description                                          |
+| --------------- | -------------------- | ---------------------------------------------------- |
+| `api-key`       | Your OpenAI API key  | **Required** - Get from OpenAI platform              |
+| `system_prompt` | Core AI instructions | **Required** - Main behavioral guidelines for the AI |
 
 ### Optional Parameters
 
-| Parameter key           | Parameter value                 | Description                                                                                  |
-| ----------------------- | ------------------------------- | -------------------------------------------------------------------------------------------- |
-| `outline`               | Interview workflow instructions | Optional - Structured interview phase guidelines                                             |
-| `model`                 | OpenAI model name               | Optional - Defaults to 'gpt-4o-mini'                                                         |
-| `language`              | Target language                 | Optional - Defaults to 'English', supports medical translation                               |
-| `selected_case`         | Case identifier                 | Optional - For case library systems                                                          |
-| `timeout`               | Seconds (integer)               | Optional - Auto-lock after inactivity (default: 600 seconds/10 minutes, set to 0 to disable) |
-| `suggested-prompts`     | Pipe-separated prompt list      | Optional - Medical question buttons (e.g., "Check vital signs\|Examine chest\|Order tests")  |
-| `end-message`           | Custom completion message       | Optional - Personalized interview conclusion                                                 |
-| `clear-button-label`    | Button text                     | Optional - If provided, shows clear button with this label                                   |
-| `complete-button-label` | Button text                     | Optional - Label for complete button (defaults to ✓)                                         |
-| `clear-warning-text`    | Warning message                 | Optional - Custom warning when clearing conversation                                         |
-| `complete-warning-text` | Warning message                 | Optional - Custom warning when completing interview                                          |
+| Parameter key           | Parameter value              | Description                                                                                               |
+| ----------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `case_data`             | Specific scenario context    | Optional - Additional context, scenarios, or structured data (combined with system_prompt)                |
+| `conversation-starter`  | Initial conversation trigger | Optional - Custom message to start conversations (default: "Please begin the conversation as instructed") |
+| `model`                 | OpenAI model name            | Optional - Defaults to 'gpt-4o-mini'                                                                      |
+| `timeout`               | Seconds (integer)            | Optional - Auto-lock after inactivity (default: 600 seconds/10 minutes, set to 0 to disable)              |
+| `suggested-prompts`     | Pipe-separated prompt list   | Optional - Custom buttons (e.g., "Ask about symptoms\|Schedule follow-up\|End conversation")              |
+| `end-message`           | Custom completion message    | Optional - Personalized conversation conclusion                                                           |
+| `clear-button-label`    | Button text                  | Optional - If provided, shows clear button with this label                                                |
+| `complete-button-label` | Button text                  | Optional - Label for complete button (defaults to ✓)                                                      |
+| `clear-warning-text`    | Warning message              | Optional - Custom warning when clearing conversation                                                      |
+| `complete-warning-text` | Warning message              | Optional - Custom warning when completing conversation                                                    |
 
 ### Setup Instructions
 
@@ -120,14 +116,13 @@ This field plug-in requires the `text` field type and saves the complete intervi
 
 ```
 custom-chatbot(
-    api-key=your_openai_api_key_here;
-    system_prompt="You are simulating a standardized patient for medical training...";
-    outline="Conduct structured medical interview phases: History → Examination → Diagnosis → Treatment";
-    medical_cases="Angela is a 24-year-old woman presenting with breathing difficulties...";
-    language=English;
-    timeout=300;
-    suggested-prompts=Tell me about your symptoms|When did this start?|Any family history?|Let me examine your chest;
-    end-message=Thank you for completing this medical consultation.
+    api-key=your_openai_api_key_here,
+    system_prompt="You are a standardized patient for medical training. Follow these guidelines...",
+    case_data="Patient: Angela, 24-year-old female with breathing difficulties...",
+    conversation-starter="Please begin as the nurse introducing the patient",
+    timeout=600,
+    suggested-prompts='Tell me about your symptoms|When did this start?|Any family history?|Let me examine you',
+    end-message='Thank you for completing this medical consultation.'
 )
 
 ```
@@ -136,9 +131,9 @@ custom-chatbot(
 
 **Timeout Behavior:**
 
-- Sessions automatically lock after 10 minutes of inactivity by default
+- Sessions automatically lock after configured inactivity period (default: 10 minutes)
 - Timeout can be customized or disabled via the `timeout` parameter
-- Inactivity includes time spent on other form fields
+- Inactivity timer pauses when page is not visible
 - Timeout state persists across form navigation
 - Clear button resets timeout state
 
@@ -148,6 +143,13 @@ custom-chatbot(
 - Input is restored when returning to the field
 - Cleared when message is successfully sent
 - Cleared when conversation is cleared
+
+**End Code Detection:**
+The plugin automatically detects various conversation completion patterns:
+
+- Standalone codes: `5j3k`, `x7y8`, `END_CONVERSATION`, `TERMINATE`, `COMPLETE`
+- Codes in text: "Thank you. Code escape: 5j3k"
+- Flexible pattern matching for custom end signals
 
 ### Default SurveyCTO feature support
 
@@ -168,6 +170,29 @@ custom-chatbot(
 - Consider data privacy implications when sending conversation data to OpenAI
 - Review OpenAI's data usage policies for your use case
 - Test thoroughly before deploying in production
+
+## Best Practices
+
+### System Prompt Design
+
+- Be specific and explicit about desired behavior
+- Include error handling instructions
+- Define clear conversation flow rules
+- Use examples to illustrate expected responses
+- Test with various input scenarios
+
+### Performance Optimization
+
+- Keep system prompts concise but comprehensive
+- Use appropriate OpenAI model for your use case
+- Monitor token usage and costs
+- Implement reasonable conversation length limits
+
+### User Experience
+
+- Provide clear instructions to users
+- Use suggested prompts for common actions
+- Set appropriate timeout
 
 ## More resources
 

@@ -100,23 +100,23 @@ Opening statement: Doctor, I have difficulty breathing that worsening this morni
 
 Provider Questions w/ SP Responses (case-specific)
 
-1.         Does the difficulty breathing come and go / is it episodic?
+1.        Does the difficulty breathing come and go / is it episodic?
     a. Yes
-2.         How long does an episode / attack typically last?
+2.        How long does an episode / attack typically last?
     a. A few hours or so.
-3.         Have you had any other episodes previously?
+3.        Have you had any other episodes previously?
     a. Yes
-4.         How often does it happen?
+4.        How often does it happen?
     a. Most days now
-5.         Do you cough?
+5.        Do you cough?
     a. Yes, sometimes.
-6.         Are you coughing a lot?
+6.        Are you coughing a lot?
     a. No
-7.         Tell me more about your cough. Is it dry or wet?
+7.        Tell me more about your cough. Is it dry or wet?
     a. It is dry.
-8.         Are you coughing up any blood or mucus?
+8.        Are you coughing up any blood or mucus?
     a. No, I am not coughing anything up.
-9.         Do you ever have wheezing / noise in your chest?
+9.        Do you ever have wheezing / noise in your chest?
     a. Yes, there is a whistling noise.
 10. Have you lost weight?
     a. No
@@ -157,79 +157,40 @@ Provider Questions w/ SP Responses (case-specific)
 28. Have you ever had any STDs? Any history of STDs?
     No
 
-Standardized Patient Case 2: Suspected Colorectal Cancer
+Case flow example (beginning with LLM)
+Hello Doctor, I have a female patient named Angela here. Would you like to conduct the consultation in English, or would you prefer another language? Also, please let me know if you would like me to perform any rapid tests or clinical examinations during your evaluation. Please indicate when you are done with your questions and exams, then you can provide your diagnosis or treatment plan.
 
-    “Painless Rectal Bleeding”
+Angela: Last night, I had a lot of difficulty with breathing.
 
-Patient Background
-Henry is a 55-year-old man who completed his education up to the diploma level. He owns a small electronics repair shop in his neighborhood, which provides him with a stable income. He lives in a three-room house with his wife, Jane, and their children. Henry has generally enjoyed good health and has never had any major chronic illnesses. However, he has noticed some changes in his toilet habits over the past few months.
-Chief Complaint & History of Present Illness
-This morning, while getting ready for work, Henry mentioned to his wife Jane, “I think I need to see a doctor. The blood in stool hasn’t stopped.” Jane looked up from what she was doing and agreed that Henry should see a doctor as she has been suggesting for a while. She said, “It’s been happening nearly every time you go to the bathroom, and it has been weeks.” For the past three months, Henry has been experiencing blood in his stool without any pain. Initially, he assumed it might be piles/swelling and has taken some medications by mouth prescribed by a pharmacy/chemist. However, over the past three weeks, the blood in stool has occurred every time he goes to the toilet. He has also noticed that his stool is sometimes thinner than usual and sometimes he has constipation, but he has no abdominal pain. Henry feels more tired than usual and has noticed a slight, unexplained weight loss over the past two months. His appetite remains mostly unchanged, but he occasionally feels bloated and eats less when he feels like this.
-Medical & Social History
-Henry has never had a colonoscopy before. He does not have a family history of colorectal cancer. He does not smoke or drink alcohol. His diet is mostly traditional, consisting of ugali, sometimes eating traditional vegetables, and meat – the admits he doesn’t eat as much fiber as he probably should. Henry has a strong and practical personality, but he looks uneasy today.
+Provider: How long did it last?
 
-Opening statement:
-Doctor, I am worried, I have noticed blood in my stool.
+Angela says the episode lasted for a few hours or so.
 
-Provider Questions w/ SP Responses
+Provider: Did this happen before?
 
-1.       When did it start / how long has it been happening?
-    a. The first time it happened was about 3 months ago
-2.       How frequently does it happen?
-    a. Almost every time I go to the bathroom
-3.       How heavy is the bleeding?
-    a. I am not sure as it is mixed in.
-4.       Is there any change in bowel habits? Do you have any constipation or diarrhea?
-    a. Yes, sometimes I feel constipated.
-5.       Is there any mucus / slime in the stool?
-    a. No
-6.       Do you have any abdominal pain?
-    a. No
-7.       Do you have any swelling/protrusion/lumps down there?
-    a. No
-8.       Have you experienced weight loss?
-    a. Not a lot… But I have tightened my belt by one hold recently.
-9.       When you go to the bathroom, do you feel like you’re getting everything out?
-    a. Yes, that is not a problem.
-10. What color is the stool?
-    a. Red and brown … The blood is mixed in
-11. Has it gotten worse over these 3 months?
-    a. Yes, the last few weeks it’s getting worse
-12. What is the texture of the stool?
-    a. Sometimes loose, sometimes hard.
-13. Is there any pain?
-    a. No
-14. Are you bleeding from anywhere else?
-    a. No
-15. Have you sought any treatment for this already?
-    a. Yes.
-16. What medication have you been taking?
-    a. Oral medication from the pharmacy
-17. Did the treatment help?
-    a. No
-18. Are you taking any other medications right now?
-    a. No
-19. Are you experiencing/suffering from unusual fatigue?
-    a. I have been doing some sports and find myself a bit breathless, but really, I feel fine
-20. Why are you coming now?
-    a. I thought it was nothing, but I am worried that the longer it goes on it might get worse.
-21. Do you have any other illnesses?
-    a. No
-22. What is your diet?
-    a. Ugali, sometimes I have traditional vegetables and also have meat regularly.
-23. Have there been any changes in your eating?
-    a. No
-24. What is your occupation?
-    a. I have a small electronics repair shop.
-25. Do you smoke?
-    a. No
-26. Do you drink alcohol?
-    a. No
-    Does anyone in your family have a history of similar symptoms?
-    a. I don’t think so
-27. Does anyone else in your household have this problem?
-    a. No
-28. Do you have hypertension / high blood pressure or diabetes / blood sugar issues?
-    a. No
-    Have you ever had any STDs? Any history of STDs?
-    No
+Angela says yes, she has had other episodes previously.
+
+Provider: Were you coughing?
+
+Angela says yes, sometimes she coughs.
+
+Provider: Is the cough productive?
+
+Angela says her cough is dry.
+
+Provider: Are there any other symptoms when you have episodes/
+
+Angela says during the episodes, she experiences a whistling noise in her chest.
+
+Provider: Did this happen to you when you were younger ever?
+
+Angela says yes, she had similar episodes when she was younger.
+
+Provider: I am done asking questions (autoprompt)
+
+Doctor, I have answered all your questions and completed the exams/tests you've indicated. Could you please share your preliminary diagnosis and treatment plan?
+
+Provider: you have tb and need antibiotics
+
+Later, you find out that the patient was confirmed to be suffering from asthma. How would you treat the patient with this information?
+(note, after the next response the case should auto-complete and lock)
