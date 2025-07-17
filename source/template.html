@@ -32,13 +32,13 @@
     {{^READONLY}}
     <div class="input-container">
         <div class="input-wrapper">
-            <input 
-                type="text" 
+            <textarea 
                 id="user-input" 
                 class="user-input default-answer-text-size" 
                 placeholder="Type your message here..."
                 dir="auto"
-            />
+                rows="1"
+            ></textarea>
             <button id="send-button" class="send-button" type="button">Send</button>
             <button id="clear-button" class="clear-button" type="button" style="display: none;">
                 <span id="clear-button-text">Clear</span>
