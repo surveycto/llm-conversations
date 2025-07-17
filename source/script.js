@@ -79,8 +79,43 @@ if (fieldProperties.HINT) {
     document.querySelector('.hint').innerHTML = unEntity(fieldProperties.HINT)
 }
 
-// Send message to OpenAI
-async function sendToOpenAI(messages) {
+// Auto-resize textarea based on content
+function autoResizeTextarea(textarea) {
+    textarea.style.height = 'auto'
+    var scrollHeight = textarea.scrollHeight
+    var maxHeight = 120 // Match CSS max-height
+    
+    if (scrollHeight > maxHeight) {
+        textarea.style.height = maxHeight + 'px'
+        textarea.style.overflowY = 'auto'
+    } else {
+        textarea.style.height = scrollHeight + 'px'
+        textarea.style.overflowY = 'hidden'
+    }
+}
+
+// Initialize auto-resize for textarea
+function initializeTextareaAutoResize() {
+    if (userInput) {
+        // Set initial height
+        autoResizeTextarea(userInput)
+        
+        // Add event listeners for auto-resize
+        userInput.addEventListener('input', function() {
+            autoResizeTextarea(this)
+        })
+        
+        userInput.addEventListener('paste', function() {
+            // Delay to allow paste content to be processed
+            setTimeout(function() {
+                autoResizeTextarea(userInput)
+            }, 0)
+        })
+    }
+}
+
+// Send message to OpenAI with streaming support
+async function sendToOpenAI(messages, onStreamChunk) {
     if (!OPENAI_API_KEY) {
         throw new Error('OpenAI API key not provided')
     }
@@ -95,7 +130,8 @@ async function sendToOpenAI(messages) {
             model: OPENAI_MODEL,
             messages: messages,
             max_tokens: 1000,
-            temperature: 0.7
+            temperature: 0.7,
+            stream: true
         })
     })
     
@@ -104,8 +140,110 @@ async function sendToOpenAI(messages) {
         throw new Error('OpenAI API error: ' + (errorData.error?.message || response.statusText))
     }
     
-    var data = await response.json()
-    return data.choices[0].message.content
+    var reader = response.body.getReader()
+    var decoder = new TextDecoder()
+    var fullResponse = ''
+    
+    try {
+        while (true) {
+            var { done, value } = await reader.read()
+            if (done) break
+            
+            var chunk = decoder.decode(value, { stream: true })
+            var lines = chunk.split('\n')
+            
+            for (var i = 0; i < lines.length; i++) {
+                var line = lines[i].trim()
+                if (line === '' || line === 'data: [DONE]') continue
+                
+                if (line.startsWith('data: ')) {
+                    try {
+                        var data = JSON.parse(line.substring(6))
+                        var content = data.choices && data.choices[0] && data.choices[0].delta && data.choices[0].delta.content
+                        
+                        if (content) {
+                            fullResponse += content
+                            if (onStreamChunk) {
+                                onStreamChunk(content, fullResponse)
+                            }
+                        }
+                    } catch (e) {
+                        // Skip invalid JSON chunks
+                        continue
+                    }
+                }
+            }
+        }
+    } finally {
+        reader.releaseLock()
+    }
+    
+    return fullResponse
+}
+
+// Add streaming message to UI
+function addStreamingMessageToUI(role, initialContent) {
+    var messageDiv = document.createElement('div')
+    var messageClass = 'message ' + (role === 'user' ? 'user-message' : 'bot-message')
+    messageDiv.className = messageClass
+    
+    var contentDiv = document.createElement('div')
+    contentDiv.className = 'message-content'
+    contentDiv.textContent = initialContent || ''
+    
+    messageDiv.appendChild(contentDiv)
+    conversationDisplay.appendChild(messageDiv)
+    
+    // Add typing indicator
+    var typingIndicator = document.createElement('span')
+    typingIndicator.className = 'typing-indicator'
+    typingIndicator.textContent = '▋'
+    contentDiv.appendChild(typingIndicator)
+    
+    conversationDisplay.scrollTop = conversationDisplay.scrollHeight
+    
+    return {
+        messageDiv: messageDiv,
+        contentDiv: contentDiv,
+        typingIndicator: typingIndicator
+    }
+}
+
+// Update streaming message content
+function updateStreamingMessage(messageElements, newContent, fullContent) {
+    var contentDiv = messageElements.contentDiv
+    var typingIndicator = messageElements.typingIndicator
+    
+    // Remove typing indicator temporarily
+    if (typingIndicator && typingIndicator.parentNode) {
+        typingIndicator.remove()
+    }
+    
+    // Update content
+    contentDiv.textContent = fullContent
+    
+    // Add typing indicator back
+    contentDiv.appendChild(typingIndicator)
+    
+    // Auto-scroll to bottom
+    conversationDisplay.scrollTop = conversationDisplay.scrollHeight
+}
+
+// Finish streaming message
+function finishStreamingMessage(messageElements, finalContent) {
+    var contentDiv = messageElements.contentDiv
+    var typingIndicator = messageElements.typingIndicator
+    
+    // Remove typing indicator
+    if (typingIndicator && typingIndicator.parentNode) {
+        typingIndicator.remove()
+    }
+    
+    // Set final content
+    contentDiv.textContent = finalContent
+    
+    // Final scroll
+    conversationDisplay.scrollTop = conversationDisplay.scrollHeight
 }
 
 // Detect special codes in AI response (flexible pattern matching)
@@ -177,8 +315,8 @@ function handleConversationEnd(specialCode) {
     saveConversation()
 }
 
-// Generate AI response
-async function generateResponse(userMessage) {
+// Generate response with streaming
+async function generateResponseWithStreaming(userMessage, onStreamChunk) {
     var completeSystemPrompt = buildCompleteSystemPrompt()
     
     var messages = [
@@ -187,12 +325,11 @@ async function generateResponse(userMessage) {
         { role: 'user', content: userMessage }
     ]
     
-    var aiResponse = await sendToOpenAI(messages)
-    return aiResponse
+    return await sendToOpenAI(messages, onStreamChunk)
 }
 
-// Generate initial response
-async function generateInitialResponse() {
+// Generate initial response with streaming
+async function generateInitialResponseWithStreaming(onStreamChunk) {
     var completeSystemPrompt = buildCompleteSystemPrompt()
     
     var messages = [
@@ -200,11 +337,10 @@ async function generateInitialResponse() {
         { role: 'user', content: CONVERSATION_STARTER }
     ]
     
-    var aiResponse = await sendToOpenAI(messages)
-    return aiResponse
+    return await sendToOpenAI(messages, onStreamChunk)
 }
 
-// Add message to UI
+// Add message to UI (for non-streaming messages)
 function addMessageToUI(role, content, animate) {
     var messageDiv = document.createElement('div')
     var messageClass = 'message '
@@ -237,7 +373,7 @@ function addMessageToUI(role, content, animate) {
     conversationDisplay.scrollTop = conversationDisplay.scrollHeight
 }
 
-// Handle sending a message
+// Handle sending a message with streaming
 async function sendMessage() {
     var message = userInput.value.trim()
 
@@ -256,16 +392,28 @@ async function sendMessage() {
         conversationState.messages.push({ role: 'user', content: message })
         addMessageToUI('user', message, true)
         userInput.value = ''
+        autoResizeTextarea(userInput) // Reset textarea height
         
-        var aiResponse = await generateResponse(message)
+        // Hide loading indicator for streaming
+        loadingIndicator.style.display = 'none'
         
-        // Check for special codes
-        var specialCode = detectSpecialCodes(aiResponse)
+        // Create streaming message UI
+        var streamingElements = addStreamingMessageToUI('assistant', '')
+        
+        // Generate response with streaming
+        var fullResponse = await generateResponseWithStreaming(message, function(chunk, fullContent) {
+            updateStreamingMessage(streamingElements, chunk, fullContent)
+        })
+        
+        // Finish streaming
+        finishStreamingMessage(streamingElements, fullResponse)
+        
+        // Check for special codes in complete response
+        var specialCode = detectSpecialCodes(fullResponse)
         if (specialCode.detected) {
             handleConversationEnd(specialCode)
         } else {
-            conversationState.messages.push({ role: 'assistant', content: aiResponse })
-            addMessageToUI('assistant', aiResponse, true)
+            conversationState.messages.push({ role: 'assistant', content: fullResponse })
         }
         
         saveConversation()
@@ -397,6 +545,7 @@ function initializeSuggestedPrompts() {
         button.onclick = function() {
             if (!userInput.disabled && !conversationState.completed) {
                 userInput.value = prompt
+                autoResizeTextarea(userInput)
                 sendMessage()
             }
         }
@@ -439,6 +588,7 @@ function restoreUnsentInput() {
         var saved = sessionStorage.getItem(storageKey)
         if (saved) {
             userInput.value = saved
+            autoResizeTextarea(userInput)
             console.log('Restored unsent input:', saved.length, 'characters')
         }
     }
@@ -499,11 +649,15 @@ function stopActivityTimer() {
 }
 
 function checkIfTimedOut() {
-    return conversationState.messages.some(msg => msg.content === '__SESSION_TIMEOUT__')
+    return conversationState.messages.some(function(msg) {
+        return msg.content === '__SESSION_TIMEOUT__'
+    })
 }
 
 function checkIfCompleted() {
-    return conversationState.messages.some(msg => msg.content === '__CONVERSATION_COMPLETED__')
+    return conversationState.messages.some(function(msg) {
+        return msg.content === '__CONVERSATION_COMPLETED__'
+    })
 }
 
 // Main conversation initialization
@@ -530,6 +684,7 @@ async function initializeConversation() {
         
         initializeButtons()
         initializeSuggestedPrompts()
+        initializeTextareaAutoResize()
         conversationDisplay.innerHTML = ''
         
         var hasSavedData = conversationData && conversationData.value
@@ -561,10 +716,18 @@ async function initializeConversation() {
                 console.log('Conversation was previously completed')
             }
         } else {
-            // New conversation - generate initial response from LLM
+            // New conversation - generate initial response with streaming
             try {
-                console.log('Generating initial response with conversation starter:', CONVERSATION_STARTER)
-                var initialResponse = await generateInitialResponse()
+                console.log('Generating initial response with streaming...')
+                loadingIndicator.style.display = 'none'
+                
+                var streamingElements = addStreamingMessageToUI('assistant', '')
+                
+                                var initialResponse = await generateInitialResponseWithStreaming(function(chunk, fullContent) {
+                    updateStreamingMessage(streamingElements, chunk, fullContent)
+                })
+                
+                finishStreamingMessage(streamingElements, initialResponse)
                 
                 // Check if initial response has special codes
                 var specialCode = detectSpecialCodes(initialResponse)
@@ -572,7 +735,6 @@ async function initializeConversation() {
                     handleConversationEnd(specialCode)
                 } else {
                     conversationState.messages.push({ role: 'assistant', content: initialResponse })
-                    addMessageToUI('assistant', initialResponse, true)
                     saveConversation()
                 }
             } catch (error) {
@@ -634,11 +796,15 @@ if (!fieldProperties.READONLY) {
             e.preventDefault()
             sendMessage()
         }
+        // Shift+Enter will create a new line (default behavior)
     })
 }
 
 if (!fieldProperties.READONLY && userInput) {
-    userInput.addEventListener('input', saveUnsentInput)
+    userInput.addEventListener('input', function() {
+        saveUnsentInput()
+        autoResizeTextarea(this)
+    })
     userInput.addEventListener('blur', saveUnsentInput)
     userInput.addEventListener('keyup', saveUnsentInput)
 }
@@ -700,3 +866,4 @@ window.addEventListener('beforeunload', function() {
 // Start conversation initialization
 console.log('Script loaded, starting initialization...')
 initializeConversation()
+

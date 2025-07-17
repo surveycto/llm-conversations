@@ -104,14 +104,14 @@
     padding: 1rem;
     background-color: #f9f9f9;
     border-radius: 0 0 8px 8px;
-    flex-shrink: 0; /* Prevent shrinking */
-    min-height: 80px; /* Minimum height */
-    max-height: 120px; /* Maximum height */
+    flex-shrink: 0;
+    min-height: 80px;
 }
 
 .input-wrapper {
     display: flex;
     gap: 0.5rem;
+    align-items: flex-end;
 }
 
 .user-input {
@@ -121,10 +121,37 @@
     border-radius: 20px;
     outline: none;
     font-size: 14px;
+    font-family: inherit;
+    resize: none;
+    overflow-y: hidden;
+    min-height: 20px;
+    max-height: 120px;
+    line-height: 1.4;
+    box-sizing: border-box;
+    transition: height 0.2s ease;
 }
 
 .user-input:focus {
     border-color: #047CC2;
+}
+
+/* Add scrollbar styling for when content exceeds max-height */
+.user-input::-webkit-scrollbar {
+    width: 4px;
+}
+
+.user-input::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 2px;
+}
+
+.user-input::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 2px;
+}
+
+.user-input::-webkit-scrollbar-thumb:hover {
+    background: #999;
 }
 
 .send-button {
@@ -137,6 +164,8 @@
     font-size: 14px;
     font-weight: 500;
     transition: background-color 0.2s;
+    flex-shrink: 0;
+    align-self: flex-end;
 }
 
 .send-button:hover {
@@ -158,6 +187,8 @@
     font-size: 14px;
     font-weight: 500;
     transition: background-color 0.2s;
+    flex-shrink: 0;
+    align-self: flex-end;
 }
 
 .clear-button:hover {
@@ -165,6 +196,35 @@
 }
 
 .clear-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.complete-button {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 8px;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 18px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    align-self: flex-end;
+    white-space: nowrap;
+}
+
+.complete-button:hover {
+    background-color: #218838;
+}
+
+.complete-button:disabled {
     background-color: #ccc;
     cursor: not-allowed;
 }
@@ -179,7 +239,7 @@
 
 .welcome-message {
     margin-bottom: 0;
-    min-height: 60px; /* Ensure visibility */
+    min-height: 60px;
 }
 
 .is-read-only .chatbot-container {
@@ -189,34 +249,6 @@
 
 .is-read-only .conversation-display {
     background-color: rgba(0,0,0,.03);
-}
-
-.complete-button {
-    min-width: 36px;
-    height: 36px;
-    padding: 0 8px; /* ADD horizontal padding for text */
-    background-color: #28a745;
-    color: white;
-    border: none;
-    border-radius: 18px; /* CHANGED from 50% to accommodate text */
-    cursor: pointer;
-    font-size: 14px; /* ADJUSTED for text */
-    font-weight: bold;
-    transition: background-color 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    white-space: nowrap; /* Prevent text wrapping */
-}
-
-.complete-button:hover {
-    background-color: #218838;
-}
-
-.complete-button:disabled {
-    background-color: #ccc;
-    cursor: not-allowed;
 }
 
 .suggested-prompts {
@@ -240,15 +272,26 @@
     background-color: #e9ecef;
 }
 
+.typing-indicator {
+    animation: blink 1s infinite;
+    color: #047CC2;
+    font-weight: bold;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
 /* Ensure the entire plugin doesn't expand */
 .field-container {
-    max-height: 600px; /* Overall container constraint */
+    max-height: 600px;
     overflow: hidden;
 }
 
 /* Fix for SurveyCTO iframe behavior */
 body {
-    overflow-x: hidden; /* Prevent horizontal scroll */
+    overflow-x: hidden;
 }
 
 /* Ensure the plugin container behaves properly */
@@ -275,10 +318,12 @@ body {
     
     .input-wrapper {
         flex-direction: column;
+        align-items: stretch;
     }
     
     .send-button,
-    .clear-button {
+    .clear-button,
+    .complete-button {
         align-self: flex-end;
         width: auto;
     }
