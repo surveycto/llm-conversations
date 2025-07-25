@@ -93,6 +93,17 @@ This field plug-in requires the `text` field type and saves the complete convers
 | `clear-warning-text`    | Warning message              | Optional - Custom warning when clearing conversation                                                      |
 | `complete-warning-text` | Warning message              | Optional - Custom warning when completing conversation                                                    |
 
+### Connection and Performance Parameters
+
+| Parameter key        | Parameter value    | Description                                                                    |
+| -------------------- | ------------------ | ------------------------------------------------------------------------------ |
+| `request-timeout`    | Milliseconds       | Optional - Initial connection timeout (default: 30000ms/30s)                   |
+| `stream-timeout`     | Milliseconds       | Optional - Time between stream chunks (default: 15000ms/15s)                   |
+| `stream-max-wait`    | Milliseconds       | Optional - Maximum total stream time (default: 60000ms/60s)                    |
+| `max-retries`        | Integer            | Optional - Number of retry attempts (default: 3)                               |
+| `retry-delay`        | Milliseconds       | Optional - Base delay between retries (default: 2000ms/2s, uses exponential backoff) |
+| `streaming-fallback` | true/false         | Optional - Enable fallback to non-streaming (default: true)                    |
+
 ### Setup Instructions
 
 1. **Get OpenAI API Key**
@@ -136,6 +147,14 @@ custom-chatbot(
 - Inactivity timer pauses when page is not visible
 - Timeout state persists across form navigation
 - Clear button resets timeout state
+
+**Connection Resilience:**
+
+- Automatic retry with exponential backoff for failed requests
+- Configurable timeouts for different connection phases
+- Streaming fallback for unreliable connections
+- Preserved user input on connection failures
+- Clean error recovery without page reloads
 
 **Input Preservation:**
 
@@ -192,7 +211,34 @@ The plugin automatically detects various conversation completion patterns:
 
 - Provide clear instructions to users
 - Use suggested prompts for common actions
-- Set appropriate timeout
+- Set appropriate timeout values for your use case
+- Test on various devices and screen sizes
+- Consider offline scenarios and error states
+
+### Connection Optimization
+
+- Adjust timeout parameters based on your typical network conditions
+- Use higher retry counts for unreliable connections
+- Enable streaming fallback for better reliability
+- Monitor error patterns and adjust parameters accordingly
+
+## Troubleshooting
+### Common Connection Issues
+
+**"Connection interrupted" errors:**
+- Increase `stream-timeout` and `stream-max-wait` parameters
+- Enable `streaming-fallback` if not already enabled
+- Check network stability
+
+**"Request timed out" errors:**
+- Increase `request-timeout` parameter
+- Increase `max-retries` for unreliable connections
+- Consider using a more stable network connection
+
+**Frequent retry attempts:**
+- Check API key validity
+- Verify OpenAI service status
+- Adjust `retry-delay` to reduce server load
 
 ## More resources
 

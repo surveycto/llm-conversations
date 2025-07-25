@@ -114,6 +114,13 @@
     align-items: flex-end;
 }
 
+.button-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-shrink: 0;
+}
+
 .user-input {
     flex: 1;
     padding: 0.75rem;
@@ -165,7 +172,7 @@
     font-weight: 500;
     transition: background-color 0.2s;
     flex-shrink: 0;
-    align-self: flex-end;
+    white-space: nowrap;
 }
 
 .send-button:hover {
@@ -188,7 +195,7 @@
     font-weight: 500;
     transition: background-color 0.2s;
     flex-shrink: 0;
-    align-self: flex-end;
+    white-space: nowrap;
 }
 
 .clear-button:hover {
@@ -216,7 +223,6 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    align-self: flex-end;
     white-space: nowrap;
 }
 
@@ -300,7 +306,41 @@ body {
     position: relative;
 }
 
-/* Mobile responsiveness for height */
+/* Tablet responsiveness */
+@media (max-width: 640px) {
+    .chatbot-container {
+        height: 600px;
+        max-height: 600px;
+        min-height: 600px;
+    }
+    
+    .conversation-display {
+        max-height: calc(600px - 120px);
+    }
+    
+    .input-wrapper {
+        flex-direction: column !important;
+        align-items: stretch;
+        gap: 12px;
+    }
+    
+    .button-row {
+        justify-content: flex-end;
+        gap: 10px;
+        align-self: stretch;
+    }
+    
+    .user-input {
+        width: 100%;
+        margin: 0;
+    }
+    
+    .message-content {
+        max-width: 85%;
+    }
+}
+
+/* Mobile responsiveness */
 @media (max-width: 480px) {
     .chatbot-container {
         height: 450px;
@@ -310,35 +350,71 @@ body {
     
     .conversation-display {
         max-height: calc(450px - 100px);
+        padding: 0.75rem;
     }
     
-    .message-content {
-        max-width: 90%;
+    .input-container {
+        padding: 0.75rem;
+        min-height: 70px;
     }
     
     .input-wrapper {
-        flex-direction: column;
-        align-items: stretch;
+        flex-direction: column !important;
+        gap: 10px;
+    }
+    
+    .button-row {
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 8px;
     }
     
     .send-button,
     .clear-button,
     .complete-button {
-        align-self: flex-end;
-        width: auto;
+        min-width: 70px;
+        padding: 10px 14px;
+        font-size: 14px;
+    }
+    
+    .user-input {
+        min-height: 44px;
+        font-size: 16px; /* Prevents zoom on iOS */
+        padding: 12px;
+    }
+    
+    .message-content {
+        max-width: 90%;
+        padding: 0.6rem 0.8rem;
+    }
+    
+    .suggested-prompts {
+        gap: 0.25rem;
+    }
+    
+    .suggested-prompts button {
+        font-size: 11px;
+        padding: 0.4rem 0.8rem;
     }
 }
 
-/* Responsive design for larger screens */
-@media (min-width: 768px) {
-    .chatbot-container {
-        height: 800px;
-        max-height: 800px;
-        min-height: 800px;
+/* Very small screens */
+@media (max-width: 360px) {
+    .button-row {
+        flex-direction: column;
+        width: 100%;
+        gap: 6px;
     }
     
-    .conversation-display {
-        max-height: calc(800px - 120px);
+    .send-button,
+    .clear-button,
+    .complete-button {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .input-container {
+        min-height: 90px;
     }
 }
 
