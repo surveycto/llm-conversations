@@ -27,6 +27,12 @@ var COMPLETE_WARNING_TEXT = getPluginParameter('complete-warning-text') || 'Are 
 var SUGGESTED_PROMPTS = getPluginParameter('suggested-prompts') || ''
 var END_MESSAGE = getPluginParameter('end-message') || 'Thank you for your participation.'
 var CONVERSATION_STARTER = getPluginParameter('conversation-starter') || 'Please begin the conversation as instructed.'
+var REQUEST_TIMEOUT = getPluginParameter('request-timeout') || 30000 // 30 seconds
+var MAX_RETRIES = getPluginParameter('max-retries') || 3
+var RETRY_DELAY = getPluginParameter('retry-delay') || 2000 // 2 seconds
+var STREAM_TIMEOUT = getPluginParameter('stream-timeout') || 15000 // 15 seconds between chunks
+var STREAM_MAX_WAIT = getPluginParameter('stream-max-wait') || 60000 // 60 seconds total
+var ENABLE_STREAMING_FALLBACK = getPluginParameter('streaming-fallback') !== 'false' // default true
 
 // Conversation state
 var conversationState = {
@@ -114,13 +120,34 @@ function initializeTextareaAutoResize() {
     }
 }
 
-// Send message to OpenAI with streaming support
+// Enhanced fetch with timeout
+async function fetchWithTimeout(url, options, timeout = REQUEST_TIMEOUT) {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeout)
+    
+    try {
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal
+        })
+        clearTimeout(timeoutId)
+        return response
+    } catch (error) {
+        clearTimeout(timeoutId)
+        if (error.name === 'AbortError') {
+            throw new Error('Request timed out after ' + (timeout / 1000) + ' seconds')
+        }
+        throw error
+    }
+}
+
+// Send message to OpenAI with streaming support and enhanced timeout handling
 async function sendToOpenAI(messages, onStreamChunk) {
     if (!OPENAI_API_KEY) {
         throw new Error('OpenAI API key not provided')
     }
     
-    var response = await fetch('https://api.openai.com/v1/chat/completions', {
+    var response = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -131,24 +158,69 @@ async function sendToOpenAI(messages, onStreamChunk) {
             messages: messages,
             max_tokens: 1000,
             temperature: 0.7,
-            stream: true
+            stream: onStreamChunk ? true : false
         })
     })
     
     if (!response.ok) {
-        var errorData = await response.json()
+        var errorText = await response.text()
+        var errorData
+        try {
+            errorData = JSON.parse(errorText)
+        } catch (e) {
+            throw new Error('HTTP ' + response.status + ': ' + response.statusText)
+        }
         throw new Error('OpenAI API error: ' + (errorData.error?.message || response.statusText))
     }
     
+    // Handle non-streaming response
+    if (!onStreamChunk) {
+        var data = await response.json()
+        return data.choices[0].message.content
+    }
+    
+    // Handle streaming response with enhanced timeout handling
     var reader = response.body.getReader()
     var decoder = new TextDecoder()
     var fullResponse = ''
+    var streamStartTime = Date.now()
+    var lastChunkTime = Date.now()
     
     try {
         while (true) {
-            var { done, value } = await reader.read()
+            // Check total stream time
+            if (Date.now() - streamStartTime > STREAM_MAX_WAIT) {
+                throw new Error('Stream exceeded maximum wait time of ' + (STREAM_MAX_WAIT / 1000) + ' seconds')
+            }
+            
+            // Create a timeout promise for individual reads
+            var readPromise = reader.read()
+            var timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => {
+                    reject(new Error('Stream chunk timeout after ' + (STREAM_TIMEOUT / 1000) + ' seconds'))
+                }, STREAM_TIMEOUT)
+            })
+            
+            var done, value
+            try {
+                var result = await Promise.race([readPromise, timeoutPromise])
+                done = result.done
+                value = result.value
+            } catch (timeoutError) {
+                // Check if we've been waiting too long since last chunk
+                if (Date.now() - lastChunkTime > STREAM_TIMEOUT) {
+                    throw timeoutError
+                } else {
+                    // Short timeout, try once more
+                    var result = await reader.read()
+                    done = result.done
+                    value = result.value
+                }
+            }
+            
             if (done) break
             
+            lastChunkTime = Date.now()
             var chunk = decoder.decode(value, { stream: true })
             var lines = chunk.split('\n')
             
@@ -178,7 +250,47 @@ async function sendToOpenAI(messages, onStreamChunk) {
         reader.releaseLock()
     }
     
+    // Ensure we got some response
+    if (!fullResponse.trim()) {
+        throw new Error('Empty response received from stream')
+    }
+    
     return fullResponse
+}
+
+// Retry wrapper with exponential backoff
+async function sendToOpenAIWithRetry(messages, onStreamChunk, retryCount = 0) {
+    try {
+        return await sendToOpenAI(messages, onStreamChunk)
+    } catch (error) {
+        console.log('Request failed (attempt ' + (retryCount + 1) + '):', error.message)
+        
+        if (retryCount < MAX_RETRIES) {
+            var delay = RETRY_DELAY * Math.pow(2, retryCount) // Exponential backoff
+            console.log('Retrying in ' + (delay / 1000) + ' seconds...')
+            await new Promise(resolve => setTimeout(resolve, delay))
+            return await sendToOpenAIWithRetry(messages, onStreamChunk, retryCount + 1)
+        } else {
+            throw new Error('Failed after ' + (MAX_RETRIES + 1) + ' attempts: ' + error.message)
+        }
+    }
+}
+
+// Fallback handler for streaming issues
+async function sendToOpenAIWithFallback(messages, onStreamChunk, useStreaming = true) {
+    if (!useStreaming || !ENABLE_STREAMING_FALLBACK) {
+        return await sendToOpenAIWithRetry(messages, onStreamChunk)
+    }
+    
+    try {
+        return await sendToOpenAIWithRetry(messages, onStreamChunk)
+    } catch (error) {
+        if (error.message.includes('timeout') || error.message.includes('Stream') || error.message.includes('chunk')) {
+            console.log('Streaming failed, falling back to non-streaming request:', error.message)
+            return await sendToOpenAIWithRetry(messages, null) // null = no streaming
+        }
+        throw error
+    }
 }
 
 // Add streaming message to UI
@@ -325,7 +437,7 @@ async function generateResponseWithStreaming(userMessage, onStreamChunk) {
         { role: 'user', content: userMessage }
     ]
     
-    return await sendToOpenAI(messages, onStreamChunk)
+    return await sendToOpenAIWithFallback(messages, onStreamChunk)
 }
 
 // Generate initial response with streaming
@@ -337,7 +449,7 @@ async function generateInitialResponseWithStreaming(onStreamChunk) {
         { role: 'user', content: CONVERSATION_STARTER }
     ]
     
-    return await sendToOpenAI(messages, onStreamChunk)
+    return await sendToOpenAIWithFallback(messages, onStreamChunk)
 }
 
 // Add message to UI (for non-streaming messages)
@@ -373,7 +485,7 @@ function addMessageToUI(role, content, animate) {
     conversationDisplay.scrollTop = conversationDisplay.scrollHeight
 }
 
-// Handle sending a message with streaming
+// Handle sending a message with enhanced error handling
 async function sendMessage() {
     var message = userInput.value.trim()
 
@@ -388,25 +500,40 @@ async function sendMessage() {
     sendButton.disabled = true
     loadingIndicator.style.display = 'block'
     
+    var streamingElements = null
+    var useStreaming = true
+    
     try {
         conversationState.messages.push({ role: 'user', content: message })
         addMessageToUI('user', message, true)
         userInput.value = ''
         autoResizeTextarea(userInput) // Reset textarea height
         
-        // Hide loading indicator for streaming
-        loadingIndicator.style.display = 'none'
+        var fullResponse
         
-        // Create streaming message UI
-        var streamingElements = addStreamingMessageToUI('assistant', '')
-        
-        // Generate response with streaming
-        var fullResponse = await generateResponseWithStreaming(message, function(chunk, fullContent) {
-            updateStreamingMessage(streamingElements, chunk, fullContent)
-        })
-        
-        // Finish streaming
-        finishStreamingMessage(streamingElements, fullResponse)
+        if (useStreaming) {
+            // Hide loading indicator for streaming
+            loadingIndicator.style.display = 'none'
+            
+            // Create streaming message UI
+            streamingElements = addStreamingMessageToUI('assistant', '')
+            
+            // Generate response with streaming
+            fullResponse = await generateResponseWithStreaming(message, function(chunk, fullContent) {
+                updateStreamingMessage(streamingElements, chunk, fullContent)
+            })
+            
+            // Finish streaming
+            finishStreamingMessage(streamingElements, fullResponse)
+        } else {
+            // Non-streaming fallback
+            loadingIndicator.querySelector('span').textContent = 'Getting response...'
+            
+            fullResponse = await generateResponseWithStreaming(message, null)
+            
+            loadingIndicator.style.display = 'none'
+            addMessageToUI('assistant', fullResponse, true)
+        }
         
         // Check for special codes in complete response
         var specialCode = detectSpecialCodes(fullResponse)
@@ -422,12 +549,42 @@ async function sendMessage() {
         
     } catch (error) {
         console.error('Error sending message:', error)
-        var errorMessage = 'Sorry, I encountered an error: ' + error.message
+        
+        // Remove the failed user message from conversation state
+        if (conversationState.messages.length > 0 && 
+            conversationState.messages[conversationState.messages.length - 1].content === message) {
+            conversationState.messages.pop()
+        }
+        
+        // Clean up streaming UI if it exists
+        if (streamingElements && streamingElements.messageDiv) {
+            streamingElements.messageDiv.remove()
+        }
+        
+        // Determine error type and provide user-friendly message
+        var errorMessage = 'Connection error. Please check your internet connection and try again.'
+        if (error.message.includes('timeout') || error.message.includes('Stream') || error.message.includes('chunk')) {
+            errorMessage = 'Connection interrupted. Your message was saved - please try sending again.'
+            useStreaming = false // Try non-streaming on next attempt
+        } else if (error.message.includes('Failed after')) {
+            errorMessage = 'Unable to connect after multiple attempts. Please check your connection and try again.'
+        } else if (error.message.includes('API error')) {
+            errorMessage = 'Service error: ' + error.message.split('API error: ')[1]
+        }
+        
         addMessageToUI('assistant', errorMessage, true)
+        
+        // Restore the user's message in the input field
+        userInput.value = message
+        autoResizeTextarea(userInput)
+        
     } finally {
         userInput.disabled = false
         sendButton.disabled = false
         loadingIndicator.style.display = 'none'
+        if (loadingIndicator.querySelector('span')) {
+            loadingIndicator.querySelector('span').textContent = 'AI is thinking...'
+        }
         if (!conversationState.completed) {
             userInput.focus()
         }
@@ -660,7 +817,7 @@ function checkIfCompleted() {
     })
 }
 
-// Main conversation initialization
+// Main conversation initialization with enhanced error handling
 async function initializeConversation() {
     if (conversationState.initialized) {
         console.log('Conversation already initialized, skipping...')
@@ -723,11 +880,11 @@ async function initializeConversation() {
                 
                 var streamingElements = addStreamingMessageToUI('assistant', '')
                 
-                                var initialResponse = await generateInitialResponseWithStreaming(function(chunk, fullContent) {
+                var initialResponse = await generateInitialResponseWithStreaming(function(chunk, fullContent) {
                     updateStreamingMessage(streamingElements, chunk, fullContent)
                 })
                 
-                finishStreamingMessage(streamingElements, initialResponse)
+                                finishStreamingMessage(streamingElements, initialResponse)
                 
                 // Check if initial response has special codes
                 var specialCode = detectSpecialCodes(initialResponse)
@@ -739,7 +896,23 @@ async function initializeConversation() {
                 }
             } catch (error) {
                 console.error('Error generating initial response:', error)
-                addMessageToUI('assistant', 'Error starting conversation: ' + error.message, true)
+                
+                // Clean up streaming UI if it exists
+                if (streamingElements && streamingElements.messageDiv) {
+                    streamingElements.messageDiv.remove()
+                }
+                
+                // Provide user-friendly error message
+                var errorMessage = 'Error starting conversation. Please check your connection and try again.'
+                if (error.message.includes('timeout') || error.message.includes('Stream')) {
+                    errorMessage = 'Connection timeout while starting conversation. Please try again.'
+                } else if (error.message.includes('API error')) {
+                    errorMessage = 'Service error: ' + error.message.split('API error: ')[1]
+                } else if (error.message.includes('Failed after')) {
+                    errorMessage = 'Unable to connect after multiple attempts. Please check your connection.'
+                }
+                
+                addMessageToUI('assistant', errorMessage, true)
             }
         }
         
@@ -774,7 +947,9 @@ async function initializeConversation() {
     } finally {
         if (loadingIndicator) {
             loadingIndicator.style.display = 'none'
-            loadingIndicator.querySelector('span').textContent = 'AI is thinking...'
+            if (loadingIndicator.querySelector('span')) {
+                loadingIndicator.querySelector('span').textContent = 'AI is thinking...'
+            }
         }
     }
 }
