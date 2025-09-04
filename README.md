@@ -75,8 +75,11 @@ This field plug-in requires the `text` field type and saves the complete convers
 
 | Parameter key   | Parameter value      | Description                                          |
 | --------------- | -------------------- | ---------------------------------------------------- |
-| `api-key`       | Your OpenAI API key  | **Required** - Get from OpenAI platform              |
+| `api-provider`  | 'openai', 'anthropic', 'google' | **Required** - Which LLM provider to use |
 | `system_prompt` | Core AI instructions | **Required** - Main behavioral guidelines for the AI |
+| `api-key`       | Your OpenAI API key  | **Required if using OpenAI** |
+| `anthropic-api-key` | Your Anthropic API key | **Required if using Anthropic** |
+| `google-api-key` | Your Google API key | **Required if using Google** |
 
 ### Optional Parameters
 
@@ -257,3 +260,17 @@ The plugin automatically detects various conversation completion patterns:
 
 - **OpenAI API Documentation**  
   [https://platform.openai.com/docs](https://platform.openai.com/docs)
+
+## Platform Compatibility
+
+### Android Support
+**Recommended: Android 9.0+ (API 28 and above)**
+
+The chatbot plugin uses modern JavaScript features including async/await, AbortController, and streaming fetch APIs. While these features may work on some Android 8.1+ devices with updated WebView, Android 9.0+ provides guaranteed compatibility and reliable performance.
+
+For maximum compatibility across all devices in your deployment:
+- **Android 9.0+**: Full native support, no issues expected
+- **Android 8.1+**: May work with updated Chrome WebView (not guaranteed)
+- **Android 8.0 and below**: Not recommended, requires significant code modifications
+
+If you need to support older Android versions, consider implementing the compatibility fallbacks mentioned in the troubleshooting section.

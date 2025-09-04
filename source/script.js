@@ -18,7 +18,7 @@ var suggestedPromptsContainer = document.getElementById('suggested-prompts')
 // Get parameters from SurveyCTO fields and plugin parameters
 var SYSTEM_PROMPT = getPluginParameter('system_prompt') || ''
 var CASE_DATA = getPluginParameter('case_data') || ''
-var OPENAI_MODEL = getPluginParameter('model') || 'gpt-4o-mini'
+var MODEL = getPluginParameter('model') || getDefaultModel(API_PROVIDER)
 var OPENAI_API_KEY = getPluginParameter('api-key') || ''
 var CLEAR_BUTTON_LABEL = getPluginParameter('clear-button-label') || ''
 var COMPLETE_BUTTON_LABEL = getPluginParameter('complete-button-label') || '✓'
@@ -27,12 +27,15 @@ var COMPLETE_WARNING_TEXT = getPluginParameter('complete-warning-text') || 'Are 
 var SUGGESTED_PROMPTS = getPluginParameter('suggested-prompts') || ''
 var END_MESSAGE = getPluginParameter('end-message') || 'Thank you for your participation.'
 var CONVERSATION_STARTER = getPluginParameter('conversation-starter') || 'Please begin the conversation as instructed.'
-var REQUEST_TIMEOUT = getPluginParameter('request-timeout') || 30000 // 30 seconds
-var MAX_RETRIES = getPluginParameter('max-retries') || 3
+var REQUEST_TIMEOUT = parseInt(getPluginParameter('request-timeout')) || 30000 // 30 seconds
+var MAX_RETRIES = parseInt(getPluginParameter('max-retries')) || 3
 var RETRY_DELAY = getPluginParameter('retry-delay') || 2000 // 2 seconds
 var STREAM_TIMEOUT = getPluginParameter('stream-timeout') || 15000 // 15 seconds between chunks
 var STREAM_MAX_WAIT = getPluginParameter('stream-max-wait') || 60000 // 60 seconds total
 var ENABLE_STREAMING_FALLBACK = getPluginParameter('streaming-fallback') !== 'false' // default true
+var API_PROVIDER = getPluginParameter('api-provider') || 'openai' // 'openai', 'anthropic', 'google'
+var ANTHROPIC_API_KEY = getPluginParameter('anthropic-api-key') || ''
+var GOOGLE_API_KEY = getPluginParameter('google-api-key') || ''
 
 // Conversation state
 var conversationState = {
@@ -43,10 +46,21 @@ var conversationState = {
 
 var INPUT_SAVE_KEY = 'chatbot_unsent_input'
 var fieldName = fieldProperties.FIELD_NAME || 'chatbot_field'
-var TIMEOUT_SECONDS = getPluginParameter('timeout') || 600
+var TIMEOUT_SECONDS = parseInt(getPluginParameter('timeout')) || 600
 var timeoutTimer = null
 var lastActivityTime = Date.now()
 var isTimedOut = false
+
+// Prefer max_completion_tokens for everything except known legacy families
+function usesMaxCompletionTokens(model) {
+    var m = (model || '').toLowerCase()
+    // Known legacy chat/completions models that still expect max_tokens
+    var legacyFamilies = [
+        /^gpt-3\.5/,                                  // gpt-3.5-turbo*
+        /^gpt-4($|-\d{4}|-0613|-1106|-0125)/          // classic gpt-4 snapshots (not 4o/4-turbo)
+    ]
+    return !legacyFamilies.some(function(re) { return re.test(m) })
+}
 
 // Build complete system prompt (combines system prompt + case data)
 function buildCompleteSystemPrompt() {
@@ -63,11 +77,21 @@ function buildCompleteSystemPrompt() {
 function validateParameters() {
     var errors = []
     
-    if (!OPENAI_API_KEY) {
-        errors.push('OpenAI API key is required')
-    }
     if (!SYSTEM_PROMPT) {
         errors.push('System prompt is required')
+    }
+    
+    switch (API_PROVIDER.toLowerCase()) {
+        case 'anthropic':
+            if (!ANTHROPIC_API_KEY) errors.push('Anthropic API key is required')
+            break
+        case 'google':
+            if (!GOOGLE_API_KEY) errors.push('Google API key is required')
+            break
+        case 'openai':
+        default:
+            if (!OPENAI_API_KEY) errors.push('OpenAI API key is required')
+            break
     }
     
     return errors
@@ -75,7 +99,7 @@ function validateParameters() {
 
 // Handle HTML entities in labels and hints
 function unEntity(str) {
-    return str.replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    return str.replace(/</g, '<').replace(/>/g, '>')
 }
 
 if (fieldProperties.LABEL) {
@@ -147,19 +171,26 @@ async function sendToOpenAI(messages, onStreamChunk) {
         throw new Error('OpenAI API key not provided')
     }
     
+    var requestBody = {
+        model: OPENAI_MODEL,
+        messages: messages,
+        temperature: 0.7,
+        stream: !!onStreamChunk
+    }
+
+    if (usesMaxCompletionTokens(OPENAI_MODEL)) {
+        requestBody.max_completion_tokens = 1000
+    } else {
+        requestBody.max_tokens = 1000
+    }
+    
     var response = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ' + OPENAI_API_KEY
         },
-        body: JSON.stringify({
-            model: OPENAI_MODEL,
-            messages: messages,
-            max_tokens: 1000,
-            temperature: 0.7,
-            stream: onStreamChunk ? true : false
-        })
+        body: JSON.stringify(requestBody)
     })
     
     if (!response.ok) {
@@ -437,7 +468,7 @@ async function generateResponseWithStreaming(userMessage, onStreamChunk) {
         { role: 'user', content: userMessage }
     ]
     
-    return await sendToOpenAIWithFallback(messages, onStreamChunk)
+    return await sendToLLMWithFallback(messages, onStreamChunk)
 }
 
 // Generate initial response with streaming
@@ -449,7 +480,7 @@ async function generateInitialResponseWithStreaming(onStreamChunk) {
         { role: 'user', content: CONVERSATION_STARTER }
     ]
     
-    return await sendToOpenAIWithFallback(messages, onStreamChunk)
+    return await sendToLLMWithFallback(messages, onStreamChunk)
 }
 
 // Add message to UI (for non-streaming messages)
@@ -1042,3 +1073,93 @@ window.addEventListener('beforeunload', function() {
 console.log('Script loaded, starting initialization...')
 initializeConversation()
 
+async function sendToAnthropic(messages, onStreamChunk) {
+    if (!ANTHROPIC_API_KEY) {
+        throw new Error('Anthropic API key not provided')
+    }
+    
+    // Convert OpenAI format to Anthropic format
+    var anthropicMessages = convertToAnthropicFormat(messages)
+    
+    var requestBody = {
+        model: OPENAI_MODEL, // You'd want to rename this to MODEL
+        messages: anthropicMessages,
+        max_tokens: 1000,
+        stream: !!onStreamChunk
+    }
+    
+    var response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify(requestBody)
+    })
+    
+    // Handle response format differences
+    return handleAnthropicResponse(response, onStreamChunk)
+}
+
+async function sendToGoogle(messages, onStreamChunk) {
+    if (!GOOGLE_API_KEY) {
+        throw new Error('Google API key not provided')
+    }
+    
+    // Convert to Gemini format
+    var geminiMessages = convertToGeminiFormat(messages)
+    
+    var endpoint = onStreamChunk 
+        ? `https://generativelanguage.googleapis.com/v1beta/models/${OPENAI_MODEL}:streamGenerateContent`
+        : `https://generativelanguage.googleapis.com/v1beta/models/${OPENAI_MODEL}:generateContent`
+    
+    var requestBody = {
+        contents: geminiMessages,
+        generationConfig: {
+            maxOutputTokens: 1000,
+            temperature: 0.7
+        }
+    }
+    
+    var response = await fetchWithTimeout(`${endpoint}?key=${GOOGLE_API_KEY}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+    })
+    
+    return handleGeminiResponse(response, onStreamChunk)
+}
+
+function convertToAnthropicFormat(messages) {
+    // Anthropic separates system messages
+    var systemMessage = messages.find(m => m.role === 'system')
+    var conversationMessages = messages.filter(m => m.role !== 'system')
+    
+    return {
+        system: systemMessage ? systemMessage.content : '',
+        messages: conversationMessages
+    }
+}
+
+function convertToGeminiFormat(messages) {
+    // Google uses 'user' and 'model' roles, and different structure
+    return messages.filter(m => m.role !== 'system').map(message => ({
+        role: message.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: message.content }]
+    }))
+}
+
+async function sendToLLM(messages, onStreamChunk) {
+    switch (API_PROVIDER.toLowerCase()) {
+        case 'anthropic':
+            return await sendToAnthropic(messages, onStreamChunk)
+        case 'google':
+            return await sendToGoogle(messages, onStreamChunk)
+        case 'openai':
+        default:
+            return await sendToOpenAI(messages, onStreamChunk)
+    }
+}
