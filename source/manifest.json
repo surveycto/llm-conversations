@@ -1,7 +1,7 @@
 {
   "name": "LLM Conversations",
   "author": "Dobility",
-  "version": "1.0.6",
+  "version": "1.0.1",
   "supportedFieldTypes": [
     "text"
   ],

@@ -289,11 +289,8 @@ async function sendToOpenAIWithRetry(messages, onStreamChunk, retryCount = 0) {
     try {
         return await sendToOpenAI(messages, onStreamChunk)
     } catch (error) {
-        console.log('Request failed (attempt ' + (retryCount + 1) + '):', error.message)
-
         if (retryCount < MAX_RETRIES) {
             var delay = RETRY_DELAY * Math.pow(2, retryCount) // Exponential backoff
-            console.log('Retrying in ' + (delay / 1000) + ' seconds...')
             await new Promise(resolve => setTimeout(resolve, delay))
             return await sendToOpenAIWithRetry(messages, onStreamChunk, retryCount + 1)
         } else {
@@ -312,7 +309,6 @@ async function sendToOpenAIWithFallback(messages, onStreamChunk, useStreaming = 
         return await sendToOpenAIWithRetry(messages, onStreamChunk)
     } catch (error) {
         if (error.message.includes('timeout') || error.message.includes('Stream') || error.message.includes('chunk')) {
-            console.log('Streaming failed, falling back to non-streaming request:', error.message)
             return await sendToOpenAIWithRetry(messages, null) // null = no streaming
         }
         throw error
@@ -357,8 +353,8 @@ function updateStreamingMessage(messageElements, newContent, fullContent) {
         typingIndicator.remove()
     }
 
-    // Update content
-    contentDiv.textContent = fullContent
+    // Update content - use innerHTML for bot messages to support markdown
+    contentDiv.innerHTML = parseMarkdown(fullContent)
 
     // Add typing indicator back
     contentDiv.appendChild(typingIndicator)
@@ -377,11 +373,87 @@ function finishStreamingMessage(messageElements, finalContent) {
         typingIndicator.remove()
     }
 
-    // Set final content
-    contentDiv.textContent = finalContent
+    // Set final content - use innerHTML for bot messages to support markdown
+    contentDiv.innerHTML = parseMarkdown(finalContent)
 
     // Final scroll
     conversationDisplay.scrollTop = conversationDisplay.scrollHeight
+}
+
+// Parse markdown to HTML
+function parseMarkdown(text) {
+    if (!text) return ''
+
+    // Escape HTML to prevent XSS, but we'll selectively unescape our markdown
+    var html = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;')
+
+    // Convert LaTeX math expressions first (before other markdown)
+    // Inline math: \( ... \)
+    html = html.replace(/\\?\\\(\s*(.*?)\s*\\?\\\)/g, function (match, mathContent) {
+        return '<span class="math-inline" title="Math: ' + mathContent.replace(/"/g, '&quot;') + '">' +
+            mathContent + '</span>'
+    })
+
+    // Block math: \[ ... \]
+    html = html.replace(/\\?\\\[\s*(.*?)\s*\\?\\\]/gs, function (match, mathContent) {
+        return '<div class="math-block" title="Math: ' + mathContent.replace(/"/g, '&quot;') + '">' +
+            mathContent + '</div>'
+    })
+
+    // Headers (### ## #)
+    html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>')
+    html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>')
+    html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>')
+
+    // Bold text: **text** or __text__
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    html = html.replace(/__(.*?)__/g, '<strong>$1</strong>')
+
+    // Italic text: *text* or _text_
+    html = html.replace(/\*(.*?)\*/g, '<em>$1</em>')
+    html = html.replace(/_(.*?)_/g, '<em>$1</em>')
+
+    // Code blocks: ```code```
+    html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+
+    // Inline code: `code`
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>')
+
+    // Line breaks: double line breaks become paragraphs
+    html = html.replace(/\n\n+/g, '</p><p>')
+    html = '<p>' + html + '</p>'
+
+    // Single line breaks within paragraphs
+    html = html.replace(/\n/g, '<br>')
+
+    // Clean up empty paragraphs
+    html = html.replace(/<p><\/p>/g, '')
+    html = html.replace(/<p>\s*<\/p>/g, '')
+
+    // Lists - improved handling
+    // First, handle ordered lists
+    html = html.replace(/^[\s]*(\d+)\.\s+(.*)$/gm, '<li data-list-type="ol">$2</li>')
+
+    // Then handle unordered lists  
+    html = html.replace(/^[\s]*[-*+]\s+(.*)$/gm, '<li data-list-type="ul">$1</li>')
+
+    // Group consecutive list items into proper list tags
+    html = html.replace(/(<li data-list-type="ul">.*?<\/li>)(?:\s*<li data-list-type="ul">.*?<\/li>)*/gs, function (match) {
+        var items = match.replace(/data-list-type="ul"/g, '').trim()
+        return '<ul>' + items + '</ul>'
+    })
+
+    html = html.replace(/(<li data-list-type="ol">.*?<\/li>)(?:\s*<li data-list-type="ol">.*?<\/li>)*/gs, function (match) {
+        var items = match.replace(/data-list-type="ol"/g, '').trim()
+        return '<ol>' + items + '</ol>'
+    })
+
+    return html
 }
 
 // Detect special codes in AI response (flexible pattern matching)
@@ -431,7 +503,6 @@ function detectSpecialCodes(aiResponse) {
 
 // Handle conversation completion
 function handleConversationEnd(specialCode) {
-    console.log('Conversation ending with code:', specialCode.code)
 
     conversationState.completed = true
 
@@ -493,7 +564,13 @@ function addMessageToUI(role, content, animate) {
 
     var contentDiv = document.createElement('div')
     contentDiv.className = 'message-content'
-    contentDiv.textContent = content
+
+    // Use innerHTML for bot messages to support markdown, textContent for user messages for security
+    if (role === 'user') {
+        contentDiv.textContent = content
+    } else {
+        contentDiv.innerHTML = parseMarkdown(content)
+    }
 
     messageDiv.appendChild(contentDiv)
     conversationDisplay.appendChild(messageDiv)
@@ -516,7 +593,6 @@ async function sendMessage() {
     var message = userInput.value.trim()
 
     if (isTimedOut || conversationState.completed) {
-        console.log('Message blocked - session timed out or completed')
         return
     }
 
@@ -734,8 +810,6 @@ function initializeSuggestedPrompts() {
         }
         suggestedPromptsContainer.appendChild(button)
     })
-
-    console.log('Initialized', prompts.length, 'suggested prompts')
 }
 
 // Initialize buttons
@@ -766,7 +840,6 @@ function saveUnsentInput() {
     if (userInput && userInput.value.trim()) {
         var storageKey = INPUT_SAVE_KEY + '_' + fieldName
         sessionStorage.setItem(storageKey, userInput.value)
-        console.log('Saved unsent input:', userInput.value.length, 'characters')
     }
 }
 
@@ -777,7 +850,6 @@ function restoreUnsentInput() {
         if (saved) {
             userInput.value = saved
             autoResizeTextarea(userInput)
-            console.log('Restored unsent input:', saved.length, 'characters')
         }
     }
 }
@@ -785,7 +857,6 @@ function restoreUnsentInput() {
 function clearUnsentInput() {
     var storageKey = INPUT_SAVE_KEY + '_' + fieldName
     sessionStorage.removeItem(storageKey)
-    console.log('Cleared unsent input from storage')
 }
 
 function resetActivityTimer() {
@@ -803,8 +874,6 @@ function resetActivityTimer() {
     timeoutTimer = setTimeout(function () {
         handleTimeout()
     }, TIMEOUT_SECONDS * 1000)
-
-    console.log('Activity timer reset. Timeout in', TIMEOUT_SECONDS, 'seconds')
 }
 
 function handleTimeout() {
@@ -832,7 +901,6 @@ function stopActivityTimer() {
     if (timeoutTimer) {
         clearTimeout(timeoutTimer)
         timeoutTimer = null
-        console.log('Activity timer stopped')
     }
 }
 
@@ -851,14 +919,10 @@ function checkIfCompleted() {
 // Main conversation initialization with enhanced error handling
 async function initializeConversation() {
     if (conversationState.initialized) {
-        console.log('Conversation already initialized, skipping...')
         return
     }
 
     try {
-        console.log('Initializing conversation...')
-        console.log('System prompt length:', SYSTEM_PROMPT.length)
-        console.log('Case data length:', CASE_DATA.length)
 
         var validationErrors = validateParameters()
         if (validationErrors.length > 0) {
@@ -882,7 +946,6 @@ async function initializeConversation() {
             try {
                 savedMessages = JSON.parse(conversationData.value)
                 conversationState.messages = savedMessages
-                console.log('Loaded saved conversation with', savedMessages.length, 'messages')
             } catch (e) {
                 console.error('Error parsing saved conversation:', e)
                 savedMessages = []
@@ -901,12 +964,10 @@ async function initializeConversation() {
                 conversationState.completed = true
                 userInput.disabled = true
                 sendButton.disabled = true
-                console.log('Conversation was previously completed')
             }
         } else {
             // New conversation - generate initial response with streaming
             try {
-                console.log('Generating initial response with streaming...')
                 loadingIndicator.style.display = 'none'
 
                 var streamingElements = addStreamingMessageToUI('assistant', '')
@@ -955,7 +1016,6 @@ async function initializeConversation() {
             if (clearButton) clearButton.disabled = true
             if (completeButton) completeButton.style.display = 'none'
             userInput.placeholder = 'Session timed out - interaction locked'
-            console.log('Session was previously timed out, keeping controls disabled')
         } else if (!conversationState.completed) {
             // Start timeout timer for active sessions
             if (TIMEOUT_SECONDS > 0 && !fieldProperties.READONLY) {
@@ -968,7 +1028,6 @@ async function initializeConversation() {
 
         conversationState.initialized = true
         updateButtonVisibility()
-        console.log('Conversation initialization complete')
 
     } catch (error) {
         console.error('Error during conversation initialization:', error)
@@ -1017,7 +1076,6 @@ if (!fieldProperties.READONLY && userInput) {
 
 // Timeout functionality - track user activity
 if (TIMEOUT_SECONDS > 0 && !fieldProperties.READONLY) {
-    console.log('Timeout functionality enabled:', TIMEOUT_SECONDS, 'seconds')
 
     userInput.addEventListener('input', resetActivityTimer)
     userInput.addEventListener('keypress', resetActivityTimer)
@@ -1045,10 +1103,8 @@ if (TIMEOUT_SECONDS > 0) {
         }
 
         if (document.hidden) {
-            console.log('Page hidden, stopping activity timer')
             stopActivityTimer()
         } else {
-            console.log('Page visible, restarting activity timer')
             var timeSinceLastActivity = Date.now() - lastActivityTime
             var remainingTime = (TIMEOUT_SECONDS * 1000) - timeSinceLastActivity
 
@@ -1070,7 +1126,6 @@ window.addEventListener('beforeunload', function () {
 })
 
 // Start conversation initialization
-console.log('Script loaded, starting initialization...')
 initializeConversation()
 
 // End of script
