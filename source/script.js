@@ -10,7 +10,7 @@ var conversationDisplay = document.getElementById('conversation-display')
 var userInput = document.getElementById('user-input')
 var sendButton = document.getElementById('send-button')
 var clearButton = document.getElementById('clear-button')
-var completeButton = document.getElementById('complete-button') 
+var completeButton = document.getElementById('complete-button')
 var loadingIndicator = document.getElementById('loading-indicator')
 var conversationData = document.getElementById('conversation-data')
 var suggestedPromptsContainer = document.getElementById('suggested-prompts')
@@ -18,7 +18,7 @@ var suggestedPromptsContainer = document.getElementById('suggested-prompts')
 // Get parameters from SurveyCTO fields and plugin parameters
 var SYSTEM_PROMPT = getPluginParameter('system_prompt') || ''
 var CASE_DATA = getPluginParameter('case_data') || ''
-var MODEL = getPluginParameter('model') || getDefaultModel(API_PROVIDER)
+var MODEL = getPluginParameter('model') || getDefaultModel()
 var OPENAI_API_KEY = getPluginParameter('api-key') || ''
 var CLEAR_BUTTON_LABEL = getPluginParameter('clear-button-label') || ''
 var COMPLETE_BUTTON_LABEL = getPluginParameter('complete-button-label') || '✓'
@@ -33,9 +33,8 @@ var RETRY_DELAY = getPluginParameter('retry-delay') || 2000 // 2 seconds
 var STREAM_TIMEOUT = getPluginParameter('stream-timeout') || 15000 // 15 seconds between chunks
 var STREAM_MAX_WAIT = getPluginParameter('stream-max-wait') || 60000 // 60 seconds total
 var ENABLE_STREAMING_FALLBACK = getPluginParameter('streaming-fallback') !== 'false' // default true
-var API_PROVIDER = getPluginParameter('api-provider') || 'openai' // 'openai', 'anthropic', 'google'
-var ANTHROPIC_API_KEY = getPluginParameter('anthropic-api-key') || ''
-var GOOGLE_API_KEY = getPluginParameter('google-api-key') || ''
+// OpenAI is the only supported provider
+var SEND_BUTTON_LABEL = getPluginParameter('send-button-label') || 'Send'
 
 // Conversation state
 var conversationState = {
@@ -51,6 +50,11 @@ var timeoutTimer = null
 var lastActivityTime = Date.now()
 var isTimedOut = false
 
+// Get default OpenAI model
+function getDefaultModel() {
+    return 'gpt-4o-mini'
+}
+
 // Prefer max_completion_tokens for everything except known legacy families
 function usesMaxCompletionTokens(model) {
     var m = (model || '').toLowerCase()
@@ -59,41 +63,32 @@ function usesMaxCompletionTokens(model) {
         /^gpt-3\.5/,                                  // gpt-3.5-turbo*
         /^gpt-4($|-\d{4}|-0613|-1106|-0125)/          // classic gpt-4 snapshots (not 4o/4-turbo)
     ]
-    return !legacyFamilies.some(function(re) { return re.test(m) })
+    return !legacyFamilies.some(function (re) { return re.test(m) })
 }
 
 // Build complete system prompt (combines system prompt + case data)
 function buildCompleteSystemPrompt() {
     var completePrompt = SYSTEM_PROMPT
-    
+
     if (CASE_DATA && CASE_DATA.trim().length > 0) {
         completePrompt += '\n\n' + CASE_DATA
     }
-    
+
     return completePrompt
 }
 
 // Validate required parameters
 function validateParameters() {
     var errors = []
-    
+
     if (!SYSTEM_PROMPT) {
         errors.push('System prompt is required')
     }
-    
-    switch (API_PROVIDER.toLowerCase()) {
-        case 'anthropic':
-            if (!ANTHROPIC_API_KEY) errors.push('Anthropic API key is required')
-            break
-        case 'google':
-            if (!GOOGLE_API_KEY) errors.push('Google API key is required')
-            break
-        case 'openai':
-        default:
-            if (!OPENAI_API_KEY) errors.push('OpenAI API key is required')
-            break
+
+    if (!OPENAI_API_KEY) {
+        errors.push('OpenAI API key is required')
     }
-    
+
     return errors
 }
 
@@ -114,7 +109,7 @@ function autoResizeTextarea(textarea) {
     textarea.style.height = 'auto'
     var scrollHeight = textarea.scrollHeight
     var maxHeight = 120 // Match CSS max-height
-    
+
     if (scrollHeight > maxHeight) {
         textarea.style.height = maxHeight + 'px'
         textarea.style.overflowY = 'auto'
@@ -129,15 +124,15 @@ function initializeTextareaAutoResize() {
     if (userInput) {
         // Set initial height
         autoResizeTextarea(userInput)
-        
+
         // Add event listeners for auto-resize
-        userInput.addEventListener('input', function() {
+        userInput.addEventListener('input', function () {
             autoResizeTextarea(this)
         })
-        
-        userInput.addEventListener('paste', function() {
+
+        userInput.addEventListener('paste', function () {
             // Delay to allow paste content to be processed
-            setTimeout(function() {
+            setTimeout(function () {
                 autoResizeTextarea(userInput)
             }, 0)
         })
@@ -148,7 +143,7 @@ function initializeTextareaAutoResize() {
 async function fetchWithTimeout(url, options, timeout = REQUEST_TIMEOUT) {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), timeout)
-    
+
     try {
         const response = await fetch(url, {
             ...options,
@@ -170,20 +165,20 @@ async function sendToOpenAI(messages, onStreamChunk) {
     if (!OPENAI_API_KEY) {
         throw new Error('OpenAI API key not provided')
     }
-    
+
     var requestBody = {
-        model: OPENAI_MODEL,
+        model: MODEL,
         messages: messages,
         temperature: 0.7,
         stream: !!onStreamChunk
     }
 
-    if (usesMaxCompletionTokens(OPENAI_MODEL)) {
+    if (usesMaxCompletionTokens(MODEL)) {
         requestBody.max_completion_tokens = 1000
     } else {
         requestBody.max_tokens = 1000
     }
-    
+
     var response = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -192,7 +187,7 @@ async function sendToOpenAI(messages, onStreamChunk) {
         },
         body: JSON.stringify(requestBody)
     })
-    
+
     if (!response.ok) {
         var errorText = await response.text()
         var errorData
@@ -203,27 +198,27 @@ async function sendToOpenAI(messages, onStreamChunk) {
         }
         throw new Error('OpenAI API error: ' + (errorData.error?.message || response.statusText))
     }
-    
+
     // Handle non-streaming response
     if (!onStreamChunk) {
         var data = await response.json()
         return data.choices[0].message.content
     }
-    
+
     // Handle streaming response with enhanced timeout handling
     var reader = response.body.getReader()
     var decoder = new TextDecoder()
     var fullResponse = ''
     var streamStartTime = Date.now()
     var lastChunkTime = Date.now()
-    
+
     try {
         while (true) {
             // Check total stream time
             if (Date.now() - streamStartTime > STREAM_MAX_WAIT) {
                 throw new Error('Stream exceeded maximum wait time of ' + (STREAM_MAX_WAIT / 1000) + ' seconds')
             }
-            
+
             // Create a timeout promise for individual reads
             var readPromise = reader.read()
             var timeoutPromise = new Promise((_, reject) => {
@@ -231,7 +226,7 @@ async function sendToOpenAI(messages, onStreamChunk) {
                     reject(new Error('Stream chunk timeout after ' + (STREAM_TIMEOUT / 1000) + ' seconds'))
                 }, STREAM_TIMEOUT)
             })
-            
+
             var done, value
             try {
                 var result = await Promise.race([readPromise, timeoutPromise])
@@ -248,22 +243,22 @@ async function sendToOpenAI(messages, onStreamChunk) {
                     value = result.value
                 }
             }
-            
+
             if (done) break
-            
+
             lastChunkTime = Date.now()
             var chunk = decoder.decode(value, { stream: true })
             var lines = chunk.split('\n')
-            
+
             for (var i = 0; i < lines.length; i++) {
                 var line = lines[i].trim()
                 if (line === '' || line === 'data: [DONE]') continue
-                
+
                 if (line.startsWith('data: ')) {
                     try {
                         var data = JSON.parse(line.substring(6))
                         var content = data.choices && data.choices[0] && data.choices[0].delta && data.choices[0].delta.content
-                        
+
                         if (content) {
                             fullResponse += content
                             if (onStreamChunk) {
@@ -280,12 +275,12 @@ async function sendToOpenAI(messages, onStreamChunk) {
     } finally {
         reader.releaseLock()
     }
-    
+
     // Ensure we got some response
     if (!fullResponse.trim()) {
         throw new Error('Empty response received from stream')
     }
-    
+
     return fullResponse
 }
 
@@ -295,7 +290,7 @@ async function sendToOpenAIWithRetry(messages, onStreamChunk, retryCount = 0) {
         return await sendToOpenAI(messages, onStreamChunk)
     } catch (error) {
         console.log('Request failed (attempt ' + (retryCount + 1) + '):', error.message)
-        
+
         if (retryCount < MAX_RETRIES) {
             var delay = RETRY_DELAY * Math.pow(2, retryCount) // Exponential backoff
             console.log('Retrying in ' + (delay / 1000) + ' seconds...')
@@ -312,7 +307,7 @@ async function sendToOpenAIWithFallback(messages, onStreamChunk, useStreaming = 
     if (!useStreaming || !ENABLE_STREAMING_FALLBACK) {
         return await sendToOpenAIWithRetry(messages, onStreamChunk)
     }
-    
+
     try {
         return await sendToOpenAIWithRetry(messages, onStreamChunk)
     } catch (error) {
@@ -329,22 +324,22 @@ function addStreamingMessageToUI(role, initialContent) {
     var messageDiv = document.createElement('div')
     var messageClass = 'message ' + (role === 'user' ? 'user-message' : 'bot-message')
     messageDiv.className = messageClass
-    
+
     var contentDiv = document.createElement('div')
     contentDiv.className = 'message-content'
     contentDiv.textContent = initialContent || ''
-    
+
     messageDiv.appendChild(contentDiv)
     conversationDisplay.appendChild(messageDiv)
-    
+
     // Add typing indicator
     var typingIndicator = document.createElement('span')
     typingIndicator.className = 'typing-indicator'
     typingIndicator.textContent = '▋'
     contentDiv.appendChild(typingIndicator)
-    
+
     conversationDisplay.scrollTop = conversationDisplay.scrollHeight
-    
+
     return {
         messageDiv: messageDiv,
         contentDiv: contentDiv,
@@ -356,18 +351,18 @@ function addStreamingMessageToUI(role, initialContent) {
 function updateStreamingMessage(messageElements, newContent, fullContent) {
     var contentDiv = messageElements.contentDiv
     var typingIndicator = messageElements.typingIndicator
-    
+
     // Remove typing indicator temporarily
     if (typingIndicator && typingIndicator.parentNode) {
         typingIndicator.remove()
     }
-    
+
     // Update content
     contentDiv.textContent = fullContent
-    
+
     // Add typing indicator back
     contentDiv.appendChild(typingIndicator)
-    
+
     // Auto-scroll to bottom
     conversationDisplay.scrollTop = conversationDisplay.scrollHeight
 }
@@ -376,15 +371,15 @@ function updateStreamingMessage(messageElements, newContent, fullContent) {
 function finishStreamingMessage(messageElements, finalContent) {
     var contentDiv = messageElements.contentDiv
     var typingIndicator = messageElements.typingIndicator
-    
+
     // Remove typing indicator
     if (typingIndicator && typingIndicator.parentNode) {
         typingIndicator.remove()
     }
-    
+
     // Set final content
     contentDiv.textContent = finalContent
-    
+
     // Final scroll
     conversationDisplay.scrollTop = conversationDisplay.scrollHeight
 }
@@ -392,7 +387,7 @@ function finishStreamingMessage(messageElements, finalContent) {
 // Detect special codes in AI response (flexible pattern matching)
 function detectSpecialCodes(aiResponse) {
     var trimmedResponse = aiResponse.trim()
-    
+
     // Look for standalone codes
     var endCodePatterns = [
         /^5j3k$/,
@@ -401,28 +396,28 @@ function detectSpecialCodes(aiResponse) {
         /^TERMINATE$/,
         /^COMPLETE$/
     ]
-    
+
     for (var i = 0; i < endCodePatterns.length; i++) {
         if (endCodePatterns[i].test(trimmedResponse)) {
-            return { 
-                detected: true, 
+            return {
+                detected: true,
                 code: trimmedResponse,
                 type: 'end_conversation'
             }
         }
     }
-    
+
     // Look for codes within text (e.g., "Thank you. Code escape: 5j3k")
     var codeInTextPatterns = [
         /(?:code|escape):\s*([a-zA-Z0-9]+)/i,
         /code\s+escape:\s*([a-zA-Z0-9]+)/i
     ]
-    
+
     for (var i = 0; i < codeInTextPatterns.length; i++) {
         var match = trimmedResponse.match(codeInTextPatterns[i])
         if (match) {
-            return { 
-                detected: true, 
+            return {
+                detected: true,
                 code: match[1],
                 type: 'end_conversation',
                 hasText: true,
@@ -430,30 +425,30 @@ function detectSpecialCodes(aiResponse) {
             }
         }
     }
-    
+
     return { detected: false, code: null, type: null }
 }
 
 // Handle conversation completion
 function handleConversationEnd(specialCode) {
     console.log('Conversation ending with code:', specialCode.code)
-    
+
     conversationState.completed = true
-    
+
     // If there's text with the code, show the cleaned version
     if (specialCode.hasText && specialCode.cleanResponse) {
         addMessageToUI('assistant', specialCode.cleanResponse, true)
     }
-    
+
     // Add completion message
     addMessageToUI('assistant', END_MESSAGE, true)
-    
+
     // Disable input
     userInput.disabled = true
     sendButton.disabled = true
     if (clearButton) clearButton.disabled = true
     if (completeButton) completeButton.style.display = 'none'
-    
+
     conversationState.messages.push({ role: 'system', content: '__CONVERSATION_COMPLETED__' })
     saveConversation()
 }
@@ -461,58 +456,58 @@ function handleConversationEnd(specialCode) {
 // Generate response with streaming
 async function generateResponseWithStreaming(userMessage, onStreamChunk) {
     var completeSystemPrompt = buildCompleteSystemPrompt()
-    
+
     var messages = [
         { role: 'system', content: completeSystemPrompt },
         ...conversationState.messages,
         { role: 'user', content: userMessage }
     ]
-    
-    return await sendToLLMWithFallback(messages, onStreamChunk)
+
+    return await sendToOpenAIWithFallback(messages, onStreamChunk)
 }
 
 // Generate initial response with streaming
 async function generateInitialResponseWithStreaming(onStreamChunk) {
     var completeSystemPrompt = buildCompleteSystemPrompt()
-    
+
     var messages = [
         { role: 'system', content: completeSystemPrompt },
         { role: 'user', content: CONVERSATION_STARTER }
     ]
-    
-    return await sendToLLMWithFallback(messages, onStreamChunk)
+
+    return await sendToOpenAIWithFallback(messages, onStreamChunk)
 }
 
 // Add message to UI (for non-streaming messages)
 function addMessageToUI(role, content, animate) {
     var messageDiv = document.createElement('div')
     var messageClass = 'message '
-    
+
     if (role === 'user') {
         messageClass += 'user-message'
     } else {
         messageClass += 'bot-message'
     }
-    
+
     messageDiv.className = messageClass
-    
+
     var contentDiv = document.createElement('div')
     contentDiv.className = 'message-content'
     contentDiv.textContent = content
-    
+
     messageDiv.appendChild(contentDiv)
     conversationDisplay.appendChild(messageDiv)
-    
+
     if (animate) {
         contentDiv.style.opacity = '0'
         contentDiv.style.transform = 'translateY(10px)'
-        setTimeout(function() {
+        setTimeout(function () {
             contentDiv.style.transition = 'opacity 0.3s, transform 0.3s'
             contentDiv.style.opacity = '1'
             contentDiv.style.transform = 'translateY(0)'
         }, 10)
     }
-    
+
     conversationDisplay.scrollTop = conversationDisplay.scrollHeight
 }
 
@@ -526,46 +521,46 @@ async function sendMessage() {
     }
 
     if (!message) return
-    
+
     userInput.disabled = true
     sendButton.disabled = true
     loadingIndicator.style.display = 'block'
-    
+
     var streamingElements = null
     var useStreaming = true
-    
+
     try {
         conversationState.messages.push({ role: 'user', content: message })
         addMessageToUI('user', message, true)
         userInput.value = ''
         autoResizeTextarea(userInput) // Reset textarea height
-        
+
         var fullResponse
-        
+
         if (useStreaming) {
             // Hide loading indicator for streaming
             loadingIndicator.style.display = 'none'
-            
+
             // Create streaming message UI
             streamingElements = addStreamingMessageToUI('assistant', '')
-            
+
             // Generate response with streaming
-            fullResponse = await generateResponseWithStreaming(message, function(chunk, fullContent) {
+            fullResponse = await generateResponseWithStreaming(message, function (chunk, fullContent) {
                 updateStreamingMessage(streamingElements, chunk, fullContent)
             })
-            
+
             // Finish streaming
             finishStreamingMessage(streamingElements, fullResponse)
         } else {
             // Non-streaming fallback
             loadingIndicator.querySelector('span').textContent = 'Getting response...'
-            
+
             fullResponse = await generateResponseWithStreaming(message, null)
-            
+
             loadingIndicator.style.display = 'none'
             addMessageToUI('assistant', fullResponse, true)
         }
-        
+
         // Check for special codes in complete response
         var specialCode = detectSpecialCodes(fullResponse)
         if (specialCode.detected) {
@@ -573,25 +568,25 @@ async function sendMessage() {
         } else {
             conversationState.messages.push({ role: 'assistant', content: fullResponse })
         }
-        
+
         saveConversation()
         updateButtonVisibility()
         clearUnsentInput()
-        
+
     } catch (error) {
         console.error('Error sending message:', error)
-        
+
         // Remove the failed user message from conversation state
-        if (conversationState.messages.length > 0 && 
+        if (conversationState.messages.length > 0 &&
             conversationState.messages[conversationState.messages.length - 1].content === message) {
             conversationState.messages.pop()
         }
-        
+
         // Clean up streaming UI if it exists
         if (streamingElements && streamingElements.messageDiv) {
             streamingElements.messageDiv.remove()
         }
-        
+
         // Determine error type and provide user-friendly message
         var errorMessage = 'Connection error. Please check your internet connection and try again.'
         if (error.message.includes('timeout') || error.message.includes('Stream') || error.message.includes('chunk')) {
@@ -602,13 +597,13 @@ async function sendMessage() {
         } else if (error.message.includes('API error')) {
             errorMessage = 'Service error: ' + error.message.split('API error: ')[1]
         }
-        
+
         addMessageToUI('assistant', errorMessage, true)
-        
+
         // Restore the user's message in the input field
         userInput.value = message
         autoResizeTextarea(userInput)
-        
+
     } finally {
         userInput.disabled = false
         sendButton.disabled = false
@@ -625,21 +620,21 @@ async function sendMessage() {
 // Clear conversation
 function clearConversation() {
     if (conversationState.messages.length === 0) return
-    
+
     if (!CLEAR_BUTTON_LABEL) return
-    
+
     var confirmClear = confirm(CLEAR_WARNING_TEXT)
-    
+
     if (confirmClear) {
         conversationState.messages = []
         conversationState.completed = false
         conversationData.value = ''
         setAnswer('')
-        
+
         conversationState.initialized = false
         initializeConversation()
         updateButtonVisibility()
-        
+
         if (userInput) {
             userInput.focus()
         }
@@ -653,7 +648,7 @@ function updateButtonVisibility() {
     } else if (clearButton) {
         clearButton.style.display = 'none'
     }
-    
+
     if (completeButton) {
         completeButton.style.display = (conversationState.messages.length > 0 && !conversationState.completed) ? 'block' : 'none'
     }
@@ -669,16 +664,16 @@ function saveConversation() {
 // Complete conversation
 function completeConversation() {
     var confirmComplete = confirm(COMPLETE_WARNING_TEXT)
-    
+
     if (confirmComplete) {
         conversationState.completed = true
         conversationState.messages.push({ role: 'system', content: '__CONVERSATION_COMPLETED__' })
         saveConversation()
-        
+
         userInput.disabled = true
         sendButton.disabled = true
         completeButton.style.display = 'none'
-        
+
         addMessageToUI('assistant', END_MESSAGE, true)
     }
 }
@@ -689,12 +684,12 @@ function clearAnswer() {
     conversationState.completed = false
     conversationData.value = ''
     conversationState.initialized = false
-    
+
     if (suggestedPromptsContainer) {
         suggestedPromptsContainer.innerHTML = ''
         clearUnsentInput()
     }
-    
+
     initializeConversation()
     updateButtonVisibility()
     isTimedOut = false
@@ -717,20 +712,20 @@ function setFocus() {
 // Initialize suggested prompts
 function initializeSuggestedPrompts() {
     if (!SUGGESTED_PROMPTS || fieldProperties.READONLY) return
-    
-    var prompts = SUGGESTED_PROMPTS.split('|').map(function(prompt) {
+
+    var prompts = SUGGESTED_PROMPTS.split('|').map(function (prompt) {
         return prompt.trim()
-    }).filter(function(prompt) {
+    }).filter(function (prompt) {
         return prompt.length > 0
     })
-    
+
     if (prompts.length === 0) return
-    
-    prompts.forEach(function(prompt) {
+
+    prompts.forEach(function (prompt) {
         var button = document.createElement('button')
         button.textContent = prompt
         button.className = 'suggested-prompt-button'
-        button.onclick = function() {
+        button.onclick = function () {
             if (!userInput.disabled && !conversationState.completed) {
                 userInput.value = prompt
                 autoResizeTextarea(userInput)
@@ -739,7 +734,7 @@ function initializeSuggestedPrompts() {
         }
         suggestedPromptsContainer.appendChild(button)
     })
-    
+
     console.log('Initialized', prompts.length, 'suggested prompts')
 }
 
@@ -749,15 +744,20 @@ function initializeButtons() {
     var clearButtonText = document.getElementById('clear-button-text')
     var completeButtonElement = document.getElementById('complete-button')
     var completeButtonText = document.getElementById('complete-button-text')
-    
+    var sendButtonElement = document.getElementById('send-button')
+
     if (CLEAR_BUTTON_LABEL && clearButtonElement && clearButtonText) {
         clearButtonText.textContent = CLEAR_BUTTON_LABEL
     } else if (clearButtonElement) {
         clearButtonElement.style.display = 'none'
     }
-    
+
     if (completeButtonElement && completeButtonText) {
         completeButtonText.textContent = COMPLETE_BUTTON_LABEL
+    }
+
+    if (sendButtonElement) {
+        sendButtonElement.textContent = SEND_BUTTON_LABEL
     }
 }
 
@@ -790,41 +790,41 @@ function clearUnsentInput() {
 
 function resetActivityTimer() {
     lastActivityTime = Date.now()
-    
+
     if (isTimedOut || TIMEOUT_SECONDS <= 0 || userInput.disabled || conversationState.completed) {
         return
     }
-    
+
     if (timeoutTimer) {
         clearTimeout(timeoutTimer)
         timeoutTimer = null
     }
-    
-    timeoutTimer = setTimeout(function() {
+
+    timeoutTimer = setTimeout(function () {
         handleTimeout()
     }, TIMEOUT_SECONDS * 1000)
-    
+
     console.log('Activity timer reset. Timeout in', TIMEOUT_SECONDS, 'seconds')
 }
 
 function handleTimeout() {
     console.log('Interaction timed out after', TIMEOUT_SECONDS, 'seconds of inactivity')
-    
+
     isTimedOut = true
-    
+
     var timeoutMessage = `Session timed out after ${TIMEOUT_SECONDS} seconds of inactivity. Interaction has been locked.`
     addMessageToUI('assistant', timeoutMessage, true)
-    
+
     userInput.disabled = true
     sendButton.disabled = true
     if (clearButton) clearButton.disabled = true
     if (completeButton) completeButton.style.display = 'none'
-    
+
     userInput.placeholder = 'Session timed out - interaction locked'
-    
+
     conversationState.messages.push({ role: 'system', content: '__SESSION_TIMEOUT__' })
     saveConversation()
-    
+
     stopActivityTimer()
 }
 
@@ -837,13 +837,13 @@ function stopActivityTimer() {
 }
 
 function checkIfTimedOut() {
-    return conversationState.messages.some(function(msg) {
+    return conversationState.messages.some(function (msg) {
         return msg.content === '__SESSION_TIMEOUT__'
     })
 }
 
 function checkIfCompleted() {
-    return conversationState.messages.some(function(msg) {
+    return conversationState.messages.some(function (msg) {
         return msg.content === '__CONVERSATION_COMPLETED__'
     })
 }
@@ -854,30 +854,30 @@ async function initializeConversation() {
         console.log('Conversation already initialized, skipping...')
         return
     }
-    
+
     try {
         console.log('Initializing conversation...')
         console.log('System prompt length:', SYSTEM_PROMPT.length)
         console.log('Case data length:', CASE_DATA.length)
-        
+
         var validationErrors = validateParameters()
         if (validationErrors.length > 0) {
             throw new Error('Missing required parameters: ' + validationErrors.join(', '))
         }
-        
+
         if (loadingIndicator) {
             loadingIndicator.style.display = 'block'
             loadingIndicator.querySelector('span').textContent = 'Initializing conversation...'
         }
-        
+
         initializeButtons()
         initializeSuggestedPrompts()
         initializeTextareaAutoResize()
         conversationDisplay.innerHTML = ''
-        
+
         var hasSavedData = conversationData && conversationData.value
         var savedMessages = []
-        
+
         if (hasSavedData) {
             try {
                 savedMessages = JSON.parse(conversationData.value)
@@ -889,13 +889,13 @@ async function initializeConversation() {
                 conversationState.messages = []
             }
         }
-        
+
         if (savedMessages.length > 0) {
             // Display saved messages
-            savedMessages.forEach(function(message) {
+            savedMessages.forEach(function (message) {
                 addMessageToUI(message.role, message.content, false)
             })
-            
+
             // Check if previously completed
             if (checkIfCompleted()) {
                 conversationState.completed = true
@@ -908,15 +908,15 @@ async function initializeConversation() {
             try {
                 console.log('Generating initial response with streaming...')
                 loadingIndicator.style.display = 'none'
-                
+
                 var streamingElements = addStreamingMessageToUI('assistant', '')
-                
-                var initialResponse = await generateInitialResponseWithStreaming(function(chunk, fullContent) {
+
+                var initialResponse = await generateInitialResponseWithStreaming(function (chunk, fullContent) {
                     updateStreamingMessage(streamingElements, chunk, fullContent)
                 })
-                
-                                finishStreamingMessage(streamingElements, initialResponse)
-                
+
+                finishStreamingMessage(streamingElements, initialResponse)
+
                 // Check if initial response has special codes
                 var specialCode = detectSpecialCodes(initialResponse)
                 if (specialCode.detected) {
@@ -927,12 +927,12 @@ async function initializeConversation() {
                 }
             } catch (error) {
                 console.error('Error generating initial response:', error)
-                
+
                 // Clean up streaming UI if it exists
                 if (streamingElements && streamingElements.messageDiv) {
                     streamingElements.messageDiv.remove()
                 }
-                
+
                 // Provide user-friendly error message
                 var errorMessage = 'Error starting conversation. Please check your connection and try again.'
                 if (error.message.includes('timeout') || error.message.includes('Stream')) {
@@ -942,11 +942,11 @@ async function initializeConversation() {
                 } else if (error.message.includes('Failed after')) {
                     errorMessage = 'Unable to connect after multiple attempts. Please check your connection.'
                 }
-                
+
                 addMessageToUI('assistant', errorMessage, true)
             }
         }
-        
+
         // Check if session was previously timed out
         if (checkIfTimedOut()) {
             isTimedOut = true
@@ -961,15 +961,15 @@ async function initializeConversation() {
             if (TIMEOUT_SECONDS > 0 && !fieldProperties.READONLY) {
                 resetActivityTimer()
             }
-            
+
             // Restore any unsent input from previous session
             restoreUnsentInput()
         }
-        
+
         conversationState.initialized = true
         updateButtonVisibility()
         console.log('Conversation initialization complete')
-        
+
     } catch (error) {
         console.error('Error during conversation initialization:', error)
         conversationDisplay.innerHTML = ''
@@ -988,7 +988,7 @@ async function initializeConversation() {
 // Event listeners
 if (!fieldProperties.READONLY) {
     sendButton.addEventListener('click', sendMessage)
-    
+
     if (clearButton) {
         clearButton.addEventListener('click', clearConversation)
     }
@@ -996,8 +996,8 @@ if (!fieldProperties.READONLY) {
     if (completeButton) {
         completeButton.addEventListener('click', completeConversation)
     }
-    
-    userInput.addEventListener('keypress', function(e) {
+
+    userInput.addEventListener('keypress', function (e) {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault()
             sendMessage()
@@ -1007,7 +1007,7 @@ if (!fieldProperties.READONLY) {
 }
 
 if (!fieldProperties.READONLY && userInput) {
-    userInput.addEventListener('input', function() {
+    userInput.addEventListener('input', function () {
         saveUnsentInput()
         autoResizeTextarea(this)
     })
@@ -1018,12 +1018,12 @@ if (!fieldProperties.READONLY && userInput) {
 // Timeout functionality - track user activity
 if (TIMEOUT_SECONDS > 0 && !fieldProperties.READONLY) {
     console.log('Timeout functionality enabled:', TIMEOUT_SECONDS, 'seconds')
-    
+
     userInput.addEventListener('input', resetActivityTimer)
     userInput.addEventListener('keypress', resetActivityTimer)
     userInput.addEventListener('keydown', resetActivityTimer)
     userInput.addEventListener('focus', resetActivityTimer)
-    
+
     sendButton.addEventListener('click', resetActivityTimer)
     if (clearButton) {
         clearButton.addEventListener('click', resetActivityTimer)
@@ -1031,7 +1031,7 @@ if (TIMEOUT_SECONDS > 0 && !fieldProperties.READONLY) {
     if (completeButton) {
         completeButton.addEventListener('click', resetActivityTimer)
     }
-    
+
     if (suggestedPromptsContainer) {
         suggestedPromptsContainer.addEventListener('click', resetActivityTimer)
     }
@@ -1039,11 +1039,11 @@ if (TIMEOUT_SECONDS > 0 && !fieldProperties.READONLY) {
 
 // Handle page visibility changes for timeout
 if (TIMEOUT_SECONDS > 0) {
-    document.addEventListener('visibilitychange', function() {
+    document.addEventListener('visibilitychange', function () {
         if (isTimedOut || conversationState.completed) {
             return
         }
-        
+
         if (document.hidden) {
             console.log('Page hidden, stopping activity timer')
             stopActivityTimer()
@@ -1051,11 +1051,11 @@ if (TIMEOUT_SECONDS > 0) {
             console.log('Page visible, restarting activity timer')
             var timeSinceLastActivity = Date.now() - lastActivityTime
             var remainingTime = (TIMEOUT_SECONDS * 1000) - timeSinceLastActivity
-            
+
             if (remainingTime <= 0) {
                 handleTimeout()
             } else {
-                timeoutTimer = setTimeout(function() {
+                timeoutTimer = setTimeout(function () {
                     handleTimeout()
                 }, remainingTime)
             }
@@ -1063,7 +1063,7 @@ if (TIMEOUT_SECONDS > 0) {
     })
 }
 
-window.addEventListener('beforeunload', function() {
+window.addEventListener('beforeunload', function () {
     if (userInput && userInput.value.trim()) {
         saveUnsentInput()
     }
@@ -1073,93 +1073,4 @@ window.addEventListener('beforeunload', function() {
 console.log('Script loaded, starting initialization...')
 initializeConversation()
 
-async function sendToAnthropic(messages, onStreamChunk) {
-    if (!ANTHROPIC_API_KEY) {
-        throw new Error('Anthropic API key not provided')
-    }
-    
-    // Convert OpenAI format to Anthropic format
-    var anthropicMessages = convertToAnthropicFormat(messages)
-    
-    var requestBody = {
-        model: OPENAI_MODEL, // You'd want to rename this to MODEL
-        messages: anthropicMessages,
-        max_tokens: 1000,
-        stream: !!onStreamChunk
-    }
-    
-    var response = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': ANTHROPIC_API_KEY,
-            'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify(requestBody)
-    })
-    
-    // Handle response format differences
-    return handleAnthropicResponse(response, onStreamChunk)
-}
-
-async function sendToGoogle(messages, onStreamChunk) {
-    if (!GOOGLE_API_KEY) {
-        throw new Error('Google API key not provided')
-    }
-    
-    // Convert to Gemini format
-    var geminiMessages = convertToGeminiFormat(messages)
-    
-    var endpoint = onStreamChunk 
-        ? `https://generativelanguage.googleapis.com/v1beta/models/${OPENAI_MODEL}:streamGenerateContent`
-        : `https://generativelanguage.googleapis.com/v1beta/models/${OPENAI_MODEL}:generateContent`
-    
-    var requestBody = {
-        contents: geminiMessages,
-        generationConfig: {
-            maxOutputTokens: 1000,
-            temperature: 0.7
-        }
-    }
-    
-    var response = await fetchWithTimeout(`${endpoint}?key=${GOOGLE_API_KEY}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-    })
-    
-    return handleGeminiResponse(response, onStreamChunk)
-}
-
-function convertToAnthropicFormat(messages) {
-    // Anthropic separates system messages
-    var systemMessage = messages.find(m => m.role === 'system')
-    var conversationMessages = messages.filter(m => m.role !== 'system')
-    
-    return {
-        system: systemMessage ? systemMessage.content : '',
-        messages: conversationMessages
-    }
-}
-
-function convertToGeminiFormat(messages) {
-    // Google uses 'user' and 'model' roles, and different structure
-    return messages.filter(m => m.role !== 'system').map(message => ({
-        role: message.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: message.content }]
-    }))
-}
-
-async function sendToLLM(messages, onStreamChunk) {
-    switch (API_PROVIDER.toLowerCase()) {
-        case 'anthropic':
-            return await sendToAnthropic(messages, onStreamChunk)
-        case 'google':
-            return await sendToGoogle(messages, onStreamChunk)
-        case 'openai':
-        default:
-            return await sendToOpenAI(messages, onStreamChunk)
-    }
-}
+// End of script

@@ -1,6 +1,6 @@
-# Chatbot Field Plugin
+# LLM Conversations Field Plugin
 
-![Chatbot field plug-in interface](extras/preview.jpg)
+![llm-conversations field plug-in interface](extras/preview.jpg)
 
 ## Description
 
@@ -75,11 +75,8 @@ This field plug-in requires the `text` field type and saves the complete convers
 
 | Parameter key   | Parameter value      | Description                                          |
 | --------------- | -------------------- | ---------------------------------------------------- |
-| `api-provider`  | 'openai', 'anthropic', 'google' | **Required** - Which LLM provider to use |
 | `system_prompt` | Core AI instructions | **Required** - Main behavioral guidelines for the AI |
-| `api-key`       | Your OpenAI API key  | **Required if using OpenAI** |
-| `anthropic-api-key` | Your Anthropic API key | **Required if using Anthropic** |
-| `google-api-key` | Your Google API key | **Required if using Google** |
+| `api-key`       | Your OpenAI API key  | **Required** - Your OpenAI API key |
 
 ### Optional Parameters
 
@@ -95,6 +92,7 @@ This field plug-in requires the `text` field type and saves the complete convers
 | `complete-button-label` | Button text                  | Optional - Label for complete button (defaults to ✓)                                                      |
 | `clear-warning-text`    | Warning message              | Optional - Custom warning when clearing conversation                                                      |
 | `complete-warning-text` | Warning message              | Optional - Custom warning when completing conversation                                                    |
+| `send-button-label`     | Button text                  | Optional - Label for send button (defaults to "Send")                                                     |
 
 ### Connection and Performance Parameters
 
@@ -110,16 +108,14 @@ This field plug-in requires the `text` field type and saves the complete convers
 ### Setup Instructions
 
 1. **Get OpenAI API Key**
-
    - Sign up at [OpenAI](https://platform.openai.com/)
    - Generate an API key from your account settings
 
 2. **Configure Form**
-
    - Add a `text` field to your form
    - Set the appearance to use this plugin
-   - Add the required `api-key` parameter
-   - Optionally configure `model`, `language`, and `system-message` parameters
+   - Add the required `api-key` and `system_prompt` parameters
+   - Optionally configure `model` (default: gpt-4o-mini), `case_data`, etc.
 
 3. **Deploy**
    - Upload the form to your SurveyCTO server
@@ -131,6 +127,7 @@ This field plug-in requires the `text` field type and saves the complete convers
 ```
 custom-chatbot(
     api-key=your_openai_api_key_here,
+    model=gpt-4o-mini,
     system_prompt="You are a standardized patient for medical training. Follow these guidelines...",
     case_data="Patient: Angela, 24-year-old female with breathing difficulties...",
     conversation-starter="Please begin as the nurse introducing the patient",
@@ -138,7 +135,6 @@ custom-chatbot(
     suggested-prompts='Tell me about your symptoms|When did this start?|Any family history?|Let me examine you',
     end-message='Thank you for completing this medical consultation.'
 )
-
 ```
 
 ### Session Management
@@ -242,6 +238,29 @@ The plugin automatically detects various conversation completion patterns:
 - Check API key validity
 - Verify OpenAI service status
 - Adjust `retry-delay` to reduce server load
+
+## Testing the Plugin
+
+To test the plugin:
+
+1. **Basic Test Configuration**
+   ```
+   custom-chatbot(
+       api-key=your_openai_api_key_here,
+       model=gpt-4o-mini,
+       system_prompt="You are a helpful assistant. Always end responses with the code '5j3k' when the conversation should end.",
+       conversation-starter="Hello! How can I help you today?",
+       suggested-prompts="What can you do?|Tell me a joke|Help me with math|End conversation"
+   )
+   ```
+
+2. **Testing Checklist**
+   - ✅ Conversation starts properly
+   - ✅ AI responds appropriately to prompts
+   - ✅ Streaming works (real-time text display)
+   - ✅ End codes are detected (test with "Please end the conversation")
+   - ✅ Error handling works (test with invalid API key)
+   - ✅ Button layout works (Send button rightmost, Complete button is red)
 
 ## More resources
 
