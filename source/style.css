@@ -4,7 +4,7 @@
 
 .hint {
     margin: .5rem 0;
-    color: rgba(0,0,0,.65);
+    color: rgba(0, 0, 0, .65);
     font-style: italic;
 }
 
@@ -15,8 +15,8 @@
     background-color: #f9f9f9;
     display: flex;
     flex-direction: column;
-    height: 800px; 
-    max-height: 800px; 
+    height: 800px;
+    max-height: 800px;
     min-height: 800px;
     overflow: hidden;
     position: relative;
@@ -211,7 +211,7 @@
     min-width: 36px;
     height: 36px;
     padding: 0 8px;
-    background-color: #28a745;
+    background-color: #dc3545;
     color: white;
     border: none;
     border-radius: 18px;
@@ -227,7 +227,7 @@
 }
 
 .complete-button:hover {
-    background-color: #218838;
+    background-color: #c82333;
 }
 
 .complete-button:disabled {
@@ -249,12 +249,12 @@
 }
 
 .is-read-only .chatbot-container {
-    background-color: rgba(0,0,0,.07);
-    border: 1px solid rgba(0,0,0,.3);
+    background-color: rgba(0, 0, 0, .07);
+    border: 1px solid rgba(0, 0, 0, .3);
 }
 
 .is-read-only .conversation-display {
-    background-color: rgba(0,0,0,.03);
+    background-color: rgba(0, 0, 0, .03);
 }
 
 .suggested-prompts {
@@ -285,8 +285,16 @@
 }
 
 @keyframes blink {
-    0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0; }
+
+    0%,
+    50% {
+        opacity: 1;
+    }
+
+    51%,
+    100% {
+        opacity: 0;
+    }
 }
 
 /* Ensure the entire plugin doesn't expand */
@@ -313,28 +321,28 @@ body {
         max-height: 600px;
         min-height: 600px;
     }
-    
+
     .conversation-display {
         max-height: calc(600px - 120px);
     }
-    
+
     .input-wrapper {
         flex-direction: column !important;
         align-items: stretch;
         gap: 12px;
     }
-    
+
     .button-row {
         justify-content: flex-end;
         gap: 10px;
         align-self: stretch;
     }
-    
+
     .user-input {
         width: 100%;
         margin: 0;
     }
-    
+
     .message-content {
         max-width: 85%;
     }
@@ -347,28 +355,28 @@ body {
         max-height: 450px;
         min-height: 450px;
     }
-    
+
     .conversation-display {
         max-height: calc(450px - 100px);
         padding: 0.75rem;
     }
-    
+
     .input-container {
         padding: 0.75rem;
         min-height: 70px;
     }
-    
+
     .input-wrapper {
         flex-direction: column !important;
         gap: 10px;
     }
-    
+
     .button-row {
         justify-content: center;
         flex-wrap: wrap;
         gap: 8px;
     }
-    
+
     .send-button,
     .clear-button,
     .complete-button {
@@ -376,22 +384,23 @@ body {
         padding: 10px 14px;
         font-size: 14px;
     }
-    
+
     .user-input {
         min-height: 44px;
-        font-size: 16px; /* Prevents zoom on iOS */
+        font-size: 16px;
+        /* Prevents zoom on iOS */
         padding: 12px;
     }
-    
+
     .message-content {
         max-width: 90%;
         padding: 0.6rem 0.8rem;
     }
-    
+
     .suggested-prompts {
         gap: 0.25rem;
     }
-    
+
     .suggested-prompts button {
         font-size: 11px;
         padding: 0.4rem 0.8rem;
@@ -405,21 +414,22 @@ body {
         width: 100%;
         gap: 6px;
     }
-    
+
     .send-button,
     .clear-button,
     .complete-button {
         width: 100%;
         justify-content: center;
     }
-    
+
     .input-container {
         min-height: 90px;
     }
 }
 
 /* High DPI display adjustments */
-@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 2dppx) {
+@media (-webkit-min-device-pixel-ratio: 2),
+(min-resolution: 2dppx) {
     .conversation-display::-webkit-scrollbar {
         width: 8px;
     }
@@ -445,6 +455,7 @@ body {
         opacity: 0;
         transform: translateY(10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -457,9 +468,17 @@ body {
 
 /* Loading animation */
 @keyframes pulse {
-    0% { opacity: 0.6; }
-    50% { opacity: 1; }
-    100% { opacity: 0.6; }
+    0% {
+        opacity: 0.6;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0.6;
+    }
 }
 
 .loading-indicator span {
@@ -475,16 +494,16 @@ body {
         max-height: none;
         min-height: auto;
     }
-    
+
     .input-container {
         display: none;
     }
-    
+
     .conversation-display {
         overflow: visible;
         max-height: none;
     }
-    
+
     .clear-button,
     .complete-button {
         display: none;
