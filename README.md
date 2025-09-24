@@ -1,12 +1,12 @@
 # LLM Conversations Field Plugin
 
-![llm-conversations field plug-in interface](extras/preview.jpg)
+![llm-conversations field plug-in interface](extras/preview.jpeg)
 
 ## Description
 
 A flexible conversational AI field plugin that integrates with OpenAI's API to provide customizable chatbot interactions within SurveyCTO forms. This plugin is completely prompt-driven and can adapt to any business case or workflow based on the system prompt provided.
 
-[![Download now](extras/download-button.png)](https://github.com/surveycto/chatbot-demo/raw/master/chatbot-demo.fieldplugin.zip)
+[![Download now](extras/download-button.png)](https://github.com/surveycto/llm-conversations/raw/refs/heads/main/llm-conversations.fieldplugin.zip)
 
 ### Features
 
