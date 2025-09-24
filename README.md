@@ -280,6 +280,10 @@ To test the plugin:
 - **OpenAI API Documentation**  
   [https://platform.openai.com/docs](https://platform.openai.com/docs)
 
+## Acknowledgments
+
+This plugin was developed with collaboration and support from Benjamin Daniels and Stella Zhang of the Global Health and Population department at the Harvard T.H. Chan School of Public Health.
+
 ## Platform Compatibility
 
 ### Android Support
