@@ -97,6 +97,116 @@
     background-color: #e9ecef;
     color: #333;
     border-bottom-left-radius: 4px;
+    white-space: normal;
+    /* Allow HTML formatting for bot messages */
+}
+
+/* Markdown styling for bot messages */
+.bot-message .message-content h1,
+.bot-message .message-content h2,
+.bot-message .message-content h3 {
+    margin: 0.5rem 0;
+    font-weight: bold;
+}
+
+.bot-message .message-content h1 {
+    font-size: 1.2em;
+    border-bottom: 2px solid #ddd;
+    padding-bottom: 0.3rem;
+}
+
+.bot-message .message-content h2 {
+    font-size: 1.1em;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.2rem;
+}
+
+.bot-message .message-content h3 {
+    font-size: 1.05em;
+    color: #333;
+}
+
+.bot-message .message-content strong {
+    font-weight: bold;
+}
+
+.bot-message .message-content em {
+    font-style: italic;
+}
+
+.bot-message .message-content code {
+    background-color: rgba(0, 0, 0, 0.1);
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.3rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+}
+
+.bot-message .message-content pre {
+    background-color: rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    margin: 0.5rem 0;
+    overflow-x: auto;
+}
+
+.bot-message .message-content pre code {
+    background-color: transparent;
+    padding: 0;
+    border-radius: 0;
+}
+
+.bot-message .message-content ul,
+.bot-message .message-content ol {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+}
+
+.bot-message .message-content ol {
+    list-style-type: decimal;
+}
+
+.bot-message .message-content ul {
+    list-style-type: disc;
+}
+
+.bot-message .message-content li {
+    margin: 0.25rem 0;
+}
+
+.bot-message .message-content p {
+    margin: 0.5rem 0;
+}
+
+.bot-message .message-content p:first-child {
+    margin-top: 0;
+}
+
+.bot-message .message-content p:last-child {
+    margin-bottom: 0;
+}
+
+/* Math expressions styling */
+.math-inline {
+    font-family: 'Times New Roman', serif;
+    font-style: italic;
+    background-color: rgba(0, 100, 200, 0.1);
+    padding: 0.1rem 0.3rem;
+    border-radius: 0.2rem;
+    border: 1px solid rgba(0, 100, 200, 0.2);
+}
+
+.math-block {
+    font-family: 'Times New Roman', serif;
+    font-style: italic;
+    background-color: rgba(0, 100, 200, 0.1);
+    padding: 0.5rem;
+    border-radius: 0.3rem;
+    border: 1px solid rgba(0, 100, 200, 0.2);
+    margin: 0.5rem 0;
+    text-align: center;
+    display: block;
 }
 
 .input-container {
