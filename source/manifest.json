@@ -1,8 +1,10 @@
 {
-  "name": "Chatbot",
+  "name": "LLM Conversations",
   "author": "Dobility",
   "version": "1.0.6",
-  "supportedFieldTypes": ["text"],
+  "supportedFieldTypes": [
+    "text"
+  ],
   "hideDefaultRequiredMessage": false,
   "hideDefaultConstraintMessage": false
 }
