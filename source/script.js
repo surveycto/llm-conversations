@@ -81,12 +81,24 @@ function buildCompleteSystemPrompt() {
 function validateParameters() {
     var errors = []
 
-    if (!SYSTEM_PROMPT) {
-        errors.push('System prompt is required')
+    if (!SYSTEM_PROMPT || SYSTEM_PROMPT.trim().length === 0) {
+        errors.push('system_prompt parameter is required and cannot be empty')
     }
 
-    if (!OPENAI_API_KEY) {
-        errors.push('OpenAI API key is required')
+    if (!OPENAI_API_KEY || OPENAI_API_KEY.trim().length === 0) {
+        errors.push('api-key parameter is required and cannot be empty')
+    }
+
+    if (TIMEOUT_SECONDS < 0) {
+        errors.push('timeout parameter must be 0 or positive')
+    }
+
+    if (REQUEST_TIMEOUT <= 0) {
+        errors.push('request-timeout must be positive')
+    }
+
+    if (MAX_RETRIES < 0) {
+        errors.push('max-retries must be 0 or positive')
     }
 
     return errors
@@ -94,7 +106,7 @@ function validateParameters() {
 
 // Handle HTML entities in labels and hints
 function unEntity(str) {
-    return str.replace(/</g, '<').replace(/>/g, '>')
+    return str.replace(/&lt;/g, '<').replace(/&gt;/g, '>')
 }
 
 if (fieldProperties.LABEL) {
@@ -663,9 +675,15 @@ async function sendMessage() {
             streamingElements.messageDiv.remove()
         }
 
-        // Determine error type and provide user-friendly message
+        // Improved error messages
         var errorMessage = 'Connection error. Please check your internet connection and try again.'
-        if (error.message.includes('timeout') || error.message.includes('Stream') || error.message.includes('chunk')) {
+        if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+            errorMessage = 'Invalid API key. Please check your configuration.'
+        } else if (error.message.includes('429') || error.message.includes('rate limit')) {
+            errorMessage = 'Rate limit exceeded. Please wait a moment and try again.'
+        } else if (error.message.includes('insufficient_quota')) {
+            errorMessage = 'API quota exceeded. Please check your OpenAI account.'
+        } else if (error.message.includes('timeout') || error.message.includes('Stream') || error.message.includes('chunk')) {
             errorMessage = 'Connection interrupted. Your message was saved - please try sending again.'
             useStreaming = false // Try non-streaming on next attempt
         } else if (error.message.includes('Failed after')) {
@@ -772,6 +790,18 @@ function clearAnswer() {
     stopActivityTimer()
     if (TIMEOUT_SECONDS > 0 && !fieldProperties.READONLY) {
         resetActivityTimer()
+    }
+}
+
+function handleRequiredMessage(message) {
+    if (message && !conversationState.completed && !isTimedOut) {
+        addMessageToUI('assistant', 'This field is required: ' + message, true)
+    }
+}
+
+function handleConstraintMessage(message) {
+    if (message && !conversationState.completed && !isTimedOut) {
+        addMessageToUI('assistant', 'Constraint error: ' + message, true)
     }
 }
 
@@ -1119,11 +1149,14 @@ if (TIMEOUT_SECONDS > 0) {
     })
 }
 
-window.addEventListener('beforeunload', function () {
+function cleanup() {
+    stopActivityTimer()
     if (userInput && userInput.value.trim()) {
         saveUnsentInput()
     }
-})
+}
+
+window.addEventListener('beforeunload', cleanup)
 
 // Start conversation initialization
 initializeConversation()
