@@ -35,6 +35,7 @@
     scrollbar-width: thin;
     overflow-x: hidden;
     word-wrap: break-word;
+    will-change: scroll-position;
 }
 
 /* Prevent body scroll when chatbot is scrolling */
