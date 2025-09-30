@@ -266,8 +266,7 @@ To test the plugin:
 
 - **Test form**  
   This form will help you explore the chatbot functionality and test different configurations.  
-  [Download test form package](extras/test-form/test-form-package.zip)  
-  [Instructions for test form](extras/test-form/README.md)
+  [Download test form](https://github.com/surveycto/llm-conversations/blob/main/extras/test-form/plugin_test_form_text.xlsx)  
 
 - **Developer documentation**  
   Instructions and resources for developing your own field plug-ins.  
