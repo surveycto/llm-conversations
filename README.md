@@ -1,10 +1,10 @@
-# LLM Conversations Field Plugin
+# LLM Conversations
 
 ![llm-conversations field plug-in interface](extras/preview.jpeg)
 
 ## Description
 
-A flexible conversational AI field plugin that integrates with OpenAI's API to provide customizable chatbot interactions within SurveyCTO forms. This plugin is completely prompt-driven and can adapt to any business case or workflow based on the system prompt provided.
+A flexible conversational AI field plug-in that integrates with OpenAI's API to provide customizable chatbot interactions within SurveyCTO forms. This plug-in is completely prompt-driven and can adapt to any business case or workflow based on the system prompt provided.
 
 [![Download now](extras/download-button.png)](https://github.com/surveycto/llm-conversations/raw/refs/heads/main/llm-conversations.fieldplugin.zip)
 
@@ -44,13 +44,13 @@ This field plug-in offers comprehensive conversational AI capabilities:
 
 ### Conversation Workflow
 
-The plugin follows a completely flexible workflow determined by your system prompt:
+The field plug-in follows a completely flexible workflow determined by your system prompt:
 
 **Generic Flow:**
 
 1. **Initialization** - AI generates opening message based on system prompt and conversation starter
 2. **Interactive Exchange** - User and AI exchange messages according to prompt instructions
-3. **Completion Detection** - Plugin detects end codes or completion signals from AI responses
+3. **Completion Detection** - Plug-in detects end codes or completion signals from AI responses
 4. **Conversation Conclusion** - Session ends with customizable completion message
 
 **Example Use Cases:**
@@ -69,7 +69,7 @@ This field plug-in requires the `text` field type and saves the complete convers
 
 ### Getting started
 
-**To use this plug-in**, download the plugin file, configure the required parameters, and attach it to your form with the appropriate field appearance.
+**To use this plug-in**, download the plug-in file, configure the required parameters, and attach it to your form with the appropriate field appearance.
 
 ### Required Parameters
 
@@ -113,13 +113,13 @@ This field plug-in requires the `text` field type and saves the complete convers
 
 2. **Configure Form**
    - Add a `text` field to your form
-   - Set the appearance to use this plugin
+   - Set the appearance to use this plug-in
    - Add the required `api-key` and `system_prompt` parameters
    - Optionally configure `model` (default: gpt-4o-mini), `case_data`, etc.
 
 3. **Deploy**
    - Upload the form to your SurveyCTO server
-   - Attach the field plugin file
+   - Attach the field plug-in file
    - Test the conversation functionality
 
 ### Example Field Configuration
@@ -163,7 +163,7 @@ custom-chatbot(
 - Cleared when conversation is cleared
 
 **End Code Detection:**
-The plugin automatically detects various conversation completion patterns:
+The plug-in automatically detects various conversation completion patterns:
 
 - Standalone codes: `5j3k`, `x7y8`, `END_CONVERSATION`, `TERMINATE`, `COMPLETE`
 - Codes in text: "Thank you. Code escape: 5j3k"
@@ -239,9 +239,9 @@ The plugin automatically detects various conversation completion patterns:
 - Verify OpenAI service status
 - Adjust `retry-delay` to reduce server load
 
-## Testing the Plugin
+## Testing the Plug-in
 
-To test the plugin:
+To test the plug-in:
 
 1. **Basic Test Configuration**
    ```
@@ -281,14 +281,14 @@ To test the plugin:
 
 ## Acknowledgments
 
-This plugin was developed with collaboration and support from Benjamin Daniels and Stella Zhang of the Global Health and Population department at the Harvard T.H. Chan School of Public Health.
+This plug-in was developed with collaboration and support from Benjamin Daniels and Stella Zhang of the Global Health and Population department at the Harvard T.H. Chan School of Public Health.
 
 ## Platform Compatibility
 
 ### Android Support
 **Recommended: Android 9.0+ (API 28 and above)**
 
-The chatbot plugin uses modern JavaScript features including async/await, AbortController, and streaming fetch APIs. While these features may work on some Android 8.1+ devices with updated WebView, Android 9.0+ provides guaranteed compatibility and reliable performance.
+The chatbot plug-in uses modern JavaScript features including async/await, AbortController, and streaming fetch APIs. While these features may work on some Android 8.1+ devices with updated WebView, Android 9.0+ provides guaranteed compatibility and reliable performance.
 
 For maximum compatibility across all devices in your deployment:
 - **Android 9.0+**: Full native support, no issues expected
