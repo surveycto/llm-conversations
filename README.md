@@ -125,7 +125,7 @@ This field plug-in requires the `text` field type and saves the complete convers
 ### Example Field Configuration
 
 ```
-custom-chatbot(
+custom-llm-conversations(
     api-key=your_openai_api_key_here,
     model=gpt-4o-mini,
     system_prompt="You are a standardized patient for medical training. Follow these guidelines...",
