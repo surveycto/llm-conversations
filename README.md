@@ -245,7 +245,7 @@ To test the plug-in:
 
 1. **Basic Test Configuration**
    ```
-   custom-chatbot(
+   custom-llm-conversations(
        api-key=your_openai_api_key_here,
        model=gpt-4o-mini,
        system_prompt="You are a helpful assistant. Always end responses with the code '5j3k' when the conversation should end.",
