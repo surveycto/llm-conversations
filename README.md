@@ -184,10 +184,11 @@ The plug-in automatically detects various conversation completion patterns:
 
 ## Security Considerations
 
-- Store API keys securely and avoid exposing them in form definitions
+- This field plug-in has an MVP API key handling implementation, requiring that you directly supply your API key in a field plug-in parameter
+- We recommend using strategies like key rotation and key rate limits to reduce risk
+- Further development (e.g. a proxy service implementation to protect the API key) is advised for scale implementation
 - Consider data privacy implications when sending conversation data to OpenAI
 - Review OpenAI's data usage policies for your use case
-- Test thoroughly before deploying in production
 
 ## Best Practices
 
