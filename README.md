@@ -4,7 +4,7 @@
 
 ## Description
 
-A flexible conversational AI field plug-in that integrates with multiple AI providers (OpenAI, Google Gemini, and Anthropic Claude) to provide customizable chatbot interactions within SurveyCTO forms. This plug-in is completely prompt-driven and can adapt to any business case or workflow based on the system prompt provided.
+A flexible conversational AI field plug-in that integrates with multiple AI providers—OpenAI (GPT), Google (Gemini), and Anthropic (Claude)—to provide customizable chatbot interactions within SurveyCTO forms. This plug-in is completely prompt-driven and can adapt to any business case or workflow based on the system prompt provided.
 
 **New in v1.1.0:** Multi-provider support with proxy server capability for web deployment. See [PROXY-SETUP.md](docs/PROXY-SETUP.md) for detailed setup instructions.
 
@@ -15,7 +15,7 @@ A flexible conversational AI field plug-in that integrates with multiple AI prov
 This field plug-in offers comprehensive conversational AI capabilities:
 
 1. **Multi-Provider Support (New in v1.1.0)**  
-   Choose between OpenAI, Google Gemini, and Anthropic Claude. Optional proxy server support enables web deployment and bypasses CORS restrictions.
+   Choose between OpenAI (GPT), Google (Gemini), and Anthropic (Claude). Optional proxy server support enables web deployment and bypasses CORS restrictions.
 
 2. **Completely Flexible and Prompt-Driven**  
    Adapts to any business case, workflow, or conversational scenario based on the system prompt provided. No hardcoded business logic.
@@ -81,7 +81,7 @@ This field plug-in requires the `text` field type and saves the complete convers
 | Parameter key   | Parameter value      | Description                                          |
 | --------------- | -------------------- | ---------------------------------------------------- |
 | `system_prompt` | Core AI instructions | **Required** - Main behavioral guidelines for the AI |
-| `api-key`       | Your API key  | **Required*** - API key for your chosen provider (OpenAI, Gemini, or Anthropic) |
+| `api-key`       | Your API key  | **Required*** - API key for your chosen provider—OpenAI, Google, or Anthropic |
 
 \* **Note:** The `api-key` parameter is optional when using a `proxy-url`. API keys can be securely stored in the proxy server's environment variables instead. See [PROXY-SETUP.md](docs/PROXY-SETUP.md) for details.
 
@@ -103,7 +103,7 @@ This field plug-in requires the `text` field type and saves the complete convers
 | `complete-warning-text` | Warning message              | Optional - Custom warning when completing conversation                                                    |
 | `send-button-label`     | Button text                  | Optional - Label for send button (defaults to "Send")                                                     |
 
-\* Required for Gemini and Anthropic providers; optional for OpenAI (recommended for Web Collect)
+\* Required for Google (Gemini) and Anthropic (Claude); optional for OpenAI (recommended for Web Collect)
 
 ### Connection and Performance Parameters
 
@@ -119,13 +119,13 @@ This field plug-in requires the `text` field type and saves the complete convers
 ### Setup Instructions
 
 1. **Get API Key**
-   - **OpenAI**: Sign up at [platform.openai.com](https://platform.openai.com/) and generate an API key
-   - **Gemini**: Visit [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) to create a key
-   - **Anthropic**: Sign up at [console.anthropic.com](https://console.anthropic.com) and create an API key
+   - **OpenAI (GPT)**: Sign up at [platform.openai.com](https://platform.openai.com/) and generate an API key
+   - **Google (Gemini)**: Visit [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) to create a key
+   - **Anthropic (Claude)**: Sign up at [console.anthropic.com](https://console.anthropic.com) and create an API key
 
 2. **(Optional) Set Up Proxy Server**
-   - Required for Gemini and Anthropic
-   - Recommended for OpenAI when using Web Collect
+   - Required for Google (Gemini) and Anthropic (Claude)
+   - Recommended for OpenAI (GPT) when using Web Collect
    - See [PROXY-SETUP.md](docs/PROXY-SETUP.md) for detailed setup instructions
 
 3. **Configure Form**
@@ -156,7 +156,7 @@ custom-llm-conversations(
 )
 ```
 
-**With Proxy Server (Required for Web Collect & Gemini/Anthropic):**
+**With Proxy Server (Required for Web Collect and Google/Anthropic):**
 
 *Option A: With API key in form parameter*
 ```
@@ -164,7 +164,7 @@ custom-llm-conversations(
     provider=gemini,
     api-key=your_gemini_api_key_here,
     proxy-url=https://your-worker.workers.dev,
-    model=gemini-pro,
+    model=gemini-2.5-flash,
     system_prompt="You are a standardized patient for medical training. Follow these guidelines...",
     case_data="Patient: Angela, 24-year-old female with breathing difficulties...",
     conversation-starter="Please begin as the nurse introducing the patient",
@@ -179,7 +179,7 @@ custom-llm-conversations(
 custom-llm-conversations(
     provider=gemini,
     proxy-url=https://your-worker.workers.dev,
-    model=gemini-pro,
+    model=gemini-2.5-flash,
     system_prompt="You are a standardized patient for medical training. Follow these guidelines...",
     case_data="Patient: Angela, 24-year-old female with breathing difficulties...",
     conversation-starter="Please begin as the nurse introducing the patient",
@@ -238,7 +238,7 @@ The plug-in automatically detects various conversation completion patterns:
 
 ## Security Considerations
 
-- **API Key Protection (Recommended)**: For production deployments, use a proxy server with API keys stored as environment variables. This keeps keys completely out of form definitions and centralizes key management. See [PROXY-SETUP.md](docs/PROXY-SETUP.md) for setup instructions.
+- **API Key Protection (Recommended)**: For production deployments, use a proxy server with API keys stored as environment variables. This keeps keys completely out of form definitions and centralizes key management. See [PROXY-SETUP.md](docs/PROXY-SETUP.md) for setup instructions
 - **Alternative**: For testing or small deployments, you can provide API keys directly in field parameters, but use key rotation and rate limits
 - **Data Privacy**: Consider data privacy implications when sending conversation data to AI providers
 - **Usage Policies**: Review each provider's data usage policies:
@@ -340,9 +340,9 @@ To test the plug-in:
   [https://docs.surveycto.com/02-designing-forms/03-advanced-topics/06.using-field-plug-ins.html](https://docs.surveycto.com/02-designing-forms/03-advanced-topics/06.using-field-plug-ins.html)
 
 - **AI Provider Documentation**  
-  - [OpenAI API Documentation](https://platform.openai.com/docs)
-  - [Google Gemini API Documentation](https://ai.google.dev/docs)
-  - [Anthropic Claude API Documentation](https://docs.anthropic.com)
+  - [OpenAI (GPT) API Documentation](https://platform.openai.com/docs)
+  - [Google (Gemini) API Documentation](https://ai.google.dev/docs)
+  - [Anthropic (Claude) API Documentation](https://docs.anthropic.com)
 
 ## Acknowledgments
 
@@ -360,4 +360,4 @@ For maximum compatibility across all devices in your deployment:
 - **Android 8.1+**: May work with updated Chrome WebView (not guaranteed)
 - **Android 8.0 and below**: Not recommended, requires significant code modifications
 
-If you need to support older Android versions, consider implementing the compatibility fallbacks mentioned in the troubleshooting section.
+If you need to support older Android versions, consider implementing the compatibility fallbacks mentioned in the troubleshooting section
