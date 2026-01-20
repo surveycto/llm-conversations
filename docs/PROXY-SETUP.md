@@ -1,6 +1,6 @@
 # Proxy Server Setup Guide
 
-This guide explains how to set up and use a proxy server with the LLM Conversations field plug-in to support multiple AI providers (OpenAI, Gemini, and Anthropic) while bypassing CORS restrictions.
+This guide explains how to set up and use a proxy server with the LLM Conversations field plug-in to support multiple AI providers—OpenAI (GPT), Google (Gemini), and Anthropic (Claude)—while bypassing CORS restrictions.
 
 ## Table of Contents
 
@@ -17,33 +17,33 @@ This guide explains how to set up and use a proxy server with the LLM Conversati
 
 When using this field plug-in in web browsers (like Web Collect), direct API calls to AI providers are blocked by CORS (Cross-Origin Resource Sharing) policies. A proxy server solves this by:
 
-1. **Bypassing CORS** - The proxy adds the necessary CORS headers
-2. **Enabling Gemini & Anthropic** - These providers require a proxy for web use
-3. **Centralizing API Keys** - Optionally store keys securely on the proxy
-4. **Rate Limiting** - Control usage across your organization
+1. **Bypassing CORS**: The proxy adds the necessary CORS headers
+2. **Enabling Google (Gemini) and Anthropic (Claude)**: These providers require a proxy for web use
+3. **Centralizing API Keys**: Optionally store keys securely on the proxy
+4. **Rate Limiting**: Control usage across your organization
 
 ### When to Use Direct vs Proxy
 
 | Provider | Direct Connection | Proxy Required | Notes |
 |----------|-------------------|----------------|-------|
-| OpenAI | ✅ SurveyCTO Collect | ✅ Web Collect | Optional for Collect, required for Web |
-| Gemini | ❌ Never | ✅ Always | Always requires proxy |
-| Anthropic | ❌ Never | ✅ Always | Always requires proxy |
+| OpenAI (GPT) | ✅ SurveyCTO Collect | ✅ Web Collect | Optional for Collect, required for Web |
+| Google (Gemini) | ❌ Never | ✅ Always | Always requires proxy |
+| Anthropic (Claude) | ❌ Never | ✅ Always | Always requires proxy |
 
 ## Supported Providers
 
 This field plug-in supports three AI providers:
 
-1. **OpenAI** (GPT-4, GPT-4o, GPT-3.5)
+1. **OpenAI (GPT)**: GPT-4, GPT-4o, GPT-3.5
    - Default provider
    - Works with direct connection in Collect
    - Proxy optional but recommended
 
-2. **Google Gemini** (Gemini Pro, Gemini Pro Vision)
+2. **Google (Gemini)**: Gemini 2.5, Gemini 1.5
    - Requires proxy server
    - Supports streaming
 
-3. **Anthropic Claude** (Claude 3.5 Sonnet, Claude 3 Opus/Haiku)
+3. **Anthropic (Claude)**: Claude 4.5, Claude 3.5, Claude 3
    - Requires proxy server
    - Supports streaming
 
@@ -157,11 +157,11 @@ custom-llm-conversations(
 | `model` | No | Specific model to use | `gpt-4o-mini`, `gemini-2.5-flash`, `claude-haiku-4-5-20251001` |
 
 \* Can be omitted if stored in Worker environment variables  
-\** Required for Gemini and Anthropic; optional for OpenAI in Collect
+\** Required for Google (Gemini) and Anthropic (Claude); optional for OpenAI in Collect
 
 ## Provider-Specific Setup
 
-### OpenAI Setup
+### OpenAI (GPT) Setup
 
 1. **Get API Key**
    - Go to [platform.openai.com](https://platform.openai.com)
@@ -206,7 +206,7 @@ custom-llm-conversations(
    - `gpt-4o` - Most capable
    - `gpt-3.5-turbo` - Legacy, cheaper
 
-### Google Gemini Setup
+### Google (Gemini) Setup
 
 1. **Get API Key**
    - Go to [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
@@ -227,12 +227,12 @@ custom-llm-conversations(
 ```
 
 3. **Available Models**
-   - `gemini-2.5-flash` - Latest fast model (recommended, June 2025)
-   - `gemini-2.5-pro` - Latest, most capable model (June 2025)
+   - `gemini-2.5-flash` - Latest fast model (recommended)
+   - `gemini-2.5-pro` - Latest, most capable model
    - `gemini-1.5-flash` - Previous generation
    - `gemini-1.5-pro` - Previous generation
 
-### Anthropic Claude Setup
+### Anthropic (Claude) Setup
 
 1. **Get API Key**
    - Go to [console.anthropic.com](https://console.anthropic.com)
@@ -253,7 +253,7 @@ custom-llm-conversations(
 ```
 
 3. **Recommended Models**
-   - `claude-haiku-4-5-20251001` - Latest Claude 4.5 Haiku (fastest, recommended)
+   - `claude-haiku-4-5-20251001` - Claude 4.5 Haiku (fastest, recommended)
    - `claude-3-5-sonnet-20240620` - Claude 3.5 Sonnet (balanced)
    - `claude-3-opus-20240229` - Claude 3 Opus (most capable)
 
@@ -329,15 +329,15 @@ async function checkRateLimit(ip) {
 - Verify `api-key` parameter is set
 - Check environment variables in Cloudflare
 - Ensure key is valid and not expired
-- Check key format (OpenAI: `sk-`, Gemini: `AIza`, Anthropic: `sk-ant-`)
+- Check key format (OpenAI: `sk-`, Google: `AIza`, Anthropic: `sk-ant-`)
 
 #### 3. "Provider requires proxy server"
 
-**Symptoms:** Error when using Gemini or Anthropic without proxy
+**Symptoms:** Error when using Google (Gemini) or Anthropic (Claude) without proxy
 
 **Solutions:**
 - Add `proxy-url` parameter
-- Gemini and Anthropic ALWAYS require proxy
+- Google (Gemini) and Anthropic (Claude) ALWAYS require proxy
 - Verify proxy URL is accessible
 
 #### 4. Streaming not working
@@ -383,7 +383,7 @@ curl -X POST https://your-worker.workers.dev \
 
 #### Test in Field Plugin
 
-1. Start with OpenAI (easiest to test)
+1. Start with OpenAI (GPT) (easiest to test)
 2. Use a simple system prompt
 3. Test with `conversation-starter="Hello"`
 4. Check browser console for errors
@@ -451,14 +451,14 @@ async function trackUsage(provider, tokens) {
 
 ### AI Provider Costs (Approximate)
 
-**OpenAI:**
+**OpenAI (GPT):**
 - GPT-4o-mini: ~$0.15 per 1M input tokens
 - GPT-4o: ~$2.50 per 1M input tokens
 
-**Google Gemini:**
-- Gemini Pro: Free tier available, then ~$0.50 per 1M tokens
+**Google (Gemini):**
+- Gemini 2.5 Flash: Free tier available, then ~$0.50 per 1M tokens
 
-**Anthropic:**
+**Anthropic (Claude):**
 - Claude 3.5 Sonnet: ~$3 per 1M input tokens
 - Claude 3 Haiku: ~$0.25 per 1M input tokens
 
@@ -467,14 +467,14 @@ async function trackUsage(provider, tokens) {
 ## Conclusion
 
 Using a proxy server with this field plug-in enables:
-- ✅ Full multi-provider support (OpenAI, Gemini, Anthropic)
+- ✅ Full multi-provider support—OpenAI (GPT), Google (Gemini), Anthropic (Claude)
 - ✅ CORS-free operation in web browsers
 - ✅ Secure API key management
 - ✅ Centralized rate limiting and monitoring
 - ✅ Easy deployment with Cloudflare Workers
 
 For most use cases, we recommend:
-1. Start with OpenAI and Cloudflare Workers
+1. Start with OpenAI (GPT) and Cloudflare Workers
 2. Store API keys in Worker environment variables
 3. Test thoroughly before deploying to production
 4. Monitor usage and set budget limits
