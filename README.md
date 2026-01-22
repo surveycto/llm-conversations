@@ -4,7 +4,9 @@
 
 ## Description
 
-A flexible conversational AI field plug-in that integrates with OpenAI's API to provide customizable chatbot interactions within SurveyCTO forms. This plug-in is completely prompt-driven and can adapt to any business case or workflow based on the system prompt provided.
+A flexible conversational AI field plug-in that integrates with multiple AI providers—OpenAI (GPT), Google (Gemini), and Anthropic (Claude)—to provide customizable chatbot interactions within SurveyCTO forms. This plug-in is completely prompt-driven and can adapt to any business case or workflow based on the system prompt provided.
+
+**New in v1.1.0:** Multi-provider support with proxy server capability for web deployment. See [PROXY-SETUP.md](docs/PROXY-SETUP.md) for detailed setup instructions.
 
 [![Download now](extras/download-button.png)](https://github.com/surveycto/llm-conversations/raw/refs/heads/main/llm-conversations.fieldplugin.zip)
 
@@ -12,34 +14,37 @@ A flexible conversational AI field plug-in that integrates with OpenAI's API to 
 
 This field plug-in offers comprehensive conversational AI capabilities:
 
-1. **Completely Flexible and Prompt-Driven**  
+1. **Multi-Provider Support (New in v1.1.0)**  
+   Choose between OpenAI (GPT), Google (Gemini), and Anthropic (Claude). Optional proxy server support enables web deployment and bypasses CORS restrictions.
+
+2. **Completely Flexible and Prompt-Driven**  
    Adapts to any business case, workflow, or conversational scenario based on the system prompt provided. No hardcoded business logic.
 
-2. **Dual-Parameter System**  
+3. **Dual-Parameter System**  
    Supports both `system_prompt` (core instructions) and `case_data` (specific context/scenarios) parameters for organized prompt management.
 
-3. **Flexible End Code Detection**  
+4. **Flexible End Code Detection**  
    Automatically detects conversation completion codes (`5j3k`, `x7y8`, `END_CONVERSATION`, etc.) with flexible pattern matching.
 
-4. **Advanced Conversation Management**  
+5. **Advanced Conversation Management**  
    Save conversation transcripts, clear conversations, mark completion, with customizable end messages and warnings.
 
-5. **Timeout and Session Management**  
+6. **Timeout and Session Management**  
    Configurable session timeouts with automatic locking, input preservation, and timeout state persistence.
 
-6. **Customizable Conversation Starters**  
+7. **Customizable Conversation Starters**  
    Control how conversations begin with the `conversation-starter` parameter.
 
-7. **Suggested Prompts Support**  
+8. **Suggested Prompts Support**  
    Configurable prompt buttons for common questions or actions relevant to your use case.
 
-8. **Multi-Language Support**  
-   Works with any language supported by OpenAI's models when configured in the system prompt.
+9. **Multi-Language Support**  
+   Works with any language supported by the selected AI provider when configured in the system prompt.
 
-9. **Role-Based Interactions**  
-   Supports role-switching and character-based conversations when specified in the system prompt.
+10. **Role-Based Interactions**  
+    Supports role-switching and character-based conversations when specified in the system prompt.
 
-10. **Robust Error Handling**  
+11. **Robust Error Handling**  
     Graceful handling of API errors, network issues, and conversation state problems.
 
 ### Conversation Workflow
@@ -76,15 +81,19 @@ This field plug-in requires the `text` field type and saves the complete convers
 | Parameter key   | Parameter value      | Description                                          |
 | --------------- | -------------------- | ---------------------------------------------------- |
 | `system_prompt` | Core AI instructions | **Required** - Main behavioral guidelines for the AI |
-| `api-key`       | Your OpenAI API key  | **Required** - Your OpenAI API key |
+| `api-key`       | Your API key  | **Required*** - API key for your chosen provider—OpenAI, Google, or Anthropic |
+
+\* **Note:** The `api-key` parameter is optional when using a `proxy-url`. API keys can be securely stored in the proxy server's environment variables instead. See [PROXY-SETUP.md](docs/PROXY-SETUP.md) for details.
 
 ### Optional Parameters
 
 | Parameter key           | Parameter value              | Description                                                                                               |
 | ----------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `provider`              | AI provider name             | Optional - `openai`, `gemini`, or `anthropic` (default: `openai`)                                         |
+| `proxy-url`             | Proxy server URL             | Optional* - URL of proxy server for CORS and multi-provider support (see [PROXY-SETUP.md](docs/PROXY-SETUP.md)) |
 | `case_data`             | Specific scenario context    | Optional - Additional context, scenarios, or structured data (combined with system_prompt)                |
 | `conversation-starter`  | Initial conversation trigger | Optional - Custom message to start conversations (default: "Please begin the conversation as instructed") |
-| `model`                 | OpenAI model name            | Optional - Defaults to 'gpt-4o-mini'                                                                      |
+| `model`                 | Model name                   | Optional - Defaults vary by provider (OpenAI: `gpt-4o-mini`, Gemini: `gemini-2.5-flash`, Anthropic: `claude-haiku-4-5-20251001`) |
 | `timeout`               | Seconds (integer)            | Optional - Auto-lock after inactivity (default: 600 seconds/10 minutes, set to 0 to disable)              |
 | `suggested-prompts`     | Pipe-separated prompt list   | Optional - Custom buttons (e.g., "Ask about symptoms\|Schedule follow-up\|End conversation")              |
 | `end-message`           | Custom completion message    | Optional - Personalized conversation conclusion                                                           |
@@ -93,6 +102,8 @@ This field plug-in requires the `text` field type and saves the complete convers
 | `clear-warning-text`    | Warning message              | Optional - Custom warning when clearing conversation                                                      |
 | `complete-warning-text` | Warning message              | Optional - Custom warning when completing conversation                                                    |
 | `send-button-label`     | Button text                  | Optional - Label for send button (defaults to "Send")                                                     |
+
+\* Required for Google (Gemini) and Anthropic (Claude); optional for OpenAI (recommended for Web Collect)
 
 ### Connection and Performance Parameters
 
@@ -107,25 +118,33 @@ This field plug-in requires the `text` field type and saves the complete convers
 
 ### Setup Instructions
 
-1. **Get OpenAI API Key**
-   - Sign up at [OpenAI](https://platform.openai.com/)
-   - Generate an API key from your account settings
+1. **Get API Key**
+   - **OpenAI (GPT)**: Sign up at [platform.openai.com](https://platform.openai.com/) and generate an API key
+   - **Google (Gemini)**: Visit [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) to create a key
+   - **Anthropic (Claude)**: Sign up at [console.anthropic.com](https://console.anthropic.com) and create an API key
 
-2. **Configure Form**
+2. **(Optional) Set Up Proxy Server**
+   - Required for Google (Gemini) and Anthropic (Claude)
+   - Recommended for OpenAI (GPT) when using Web Collect
+   - See [PROXY-SETUP.md](docs/PROXY-SETUP.md) for detailed setup instructions
+
+3. **Configure Form**
    - Add a `text` field to your form
    - Set the appearance to use this plug-in
    - Add the required `api-key` and `system_prompt` parameters
-   - Optionally configure `model` (default: gpt-4o-mini), `case_data`, etc.
+   - Optionally configure `provider`, `proxy-url`, `model`, `case_data`, etc.
 
-3. **Deploy**
+4. **Deploy**
    - Upload the form to your SurveyCTO server
    - Attach the field plug-in file
    - Test the conversation functionality
 
 ### Example Field Configuration
 
+**OpenAI (Direct Connection in Collect):**
 ```
 custom-llm-conversations(
+    provider=openai,
     api-key=your_openai_api_key_here,
     model=gpt-4o-mini,
     system_prompt="You are a standardized patient for medical training. Follow these guidelines...",
@@ -136,6 +155,41 @@ custom-llm-conversations(
     end-message='Thank you for completing this medical consultation.'
 )
 ```
+
+**With Proxy Server (Required for Web Collect and Google/Anthropic):**
+
+*Option A: With API key in form parameter*
+```
+custom-llm-conversations(
+    provider=gemini,
+    api-key=your_gemini_api_key_here,
+    proxy-url=https://your-worker.workers.dev,
+    model=gemini-2.5-flash,
+    system_prompt="You are a standardized patient for medical training. Follow these guidelines...",
+    case_data="Patient: Angela, 24-year-old female with breathing difficulties...",
+    conversation-starter="Please begin as the nurse introducing the patient",
+    timeout=600,
+    suggested-prompts='Tell me about your symptoms|When did this start?|Any family history?|Let me examine you',
+    end-message='Thank you for completing this medical consultation.'
+)
+```
+
+*Option B: With API key stored in proxy server (more secure)*
+```
+custom-llm-conversations(
+    provider=gemini,
+    proxy-url=https://your-worker.workers.dev,
+    model=gemini-2.5-flash,
+    system_prompt="You are a standardized patient for medical training. Follow these guidelines...",
+    case_data="Patient: Angela, 24-year-old female with breathing difficulties...",
+    conversation-starter="Please begin as the nurse introducing the patient",
+    timeout=600,
+    suggested-prompts='Tell me about your symptoms|When did this start?|Any family history?|Let me examine you',
+    end-message='Thank you for completing this medical consultation.'
+)
+```
+
+See [PROXY-SETUP.md](docs/PROXY-SETUP.md) for detailed proxy server setup instructions.
 
 ### Session Management
 
@@ -184,11 +238,15 @@ The plug-in automatically detects various conversation completion patterns:
 
 ## Security Considerations
 
-- This field plug-in has an MVP API key handling implementation, requiring that you directly supply your API key in a field plug-in parameter
-- We recommend using strategies like key rotation and key rate limits to reduce risk
-- Further development (e.g. a proxy service implementation to protect the API key) is advised for scale implementation
-- Consider data privacy implications when sending conversation data to OpenAI
-- Review OpenAI's data usage policies for your use case
+- **API Key Protection (Recommended)**: For production deployments, use a proxy server with API keys stored as environment variables. This keeps keys completely out of form definitions and centralizes key management. See [PROXY-SETUP.md](docs/PROXY-SETUP.md) for setup instructions
+- **Alternative**: For testing or small deployments, you can provide API keys directly in field parameters, but use key rotation and rate limits
+- **Data Privacy**: Consider data privacy implications when sending conversation data to AI providers
+- **Usage Policies**: Review each provider's data usage policies:
+  - [OpenAI Usage Policies](https://openai.com/policies/usage-policies)
+  - [Google Gemini Terms](https://ai.google.dev/terms)
+  - [Anthropic Usage Policy](https://www.anthropic.com/legal/aup)
+- **Rate Limiting**: Set up usage alerts and spending limits on your API accounts
+- **HTTPS Only**: Always use HTTPS URLs for proxy servers
 
 ## Best Practices
 
@@ -265,6 +323,10 @@ To test the plug-in:
 
 ## More resources
 
+- **Proxy Server Setup Guide**  
+  Complete guide for setting up multi-provider support with Cloudflare Workers proxy.  
+  [PROXY-SETUP.md](docs/PROXY-SETUP.md)
+
 - **Test form**  
   This form will help you explore the chatbot functionality and test different configurations.  
   [Download test form](https://github.com/surveycto/llm-conversations/blob/main/extras/test-form/plugin_test_form_text.xlsx)  
@@ -277,8 +339,10 @@ To test the plug-in:
   How to get started using field plug-ins in your SurveyCTO form.  
   [https://docs.surveycto.com/02-designing-forms/03-advanced-topics/06.using-field-plug-ins.html](https://docs.surveycto.com/02-designing-forms/03-advanced-topics/06.using-field-plug-ins.html)
 
-- **OpenAI API Documentation**  
-  [https://platform.openai.com/docs](https://platform.openai.com/docs)
+- **AI Provider Documentation**  
+  - [OpenAI (GPT) API Documentation](https://platform.openai.com/docs)
+  - [Google (Gemini) API Documentation](https://ai.google.dev/docs)
+  - [Anthropic (Claude) API Documentation](https://docs.anthropic.com)
 
 ## Acknowledgments
 
@@ -296,4 +360,4 @@ For maximum compatibility across all devices in your deployment:
 - **Android 8.1+**: May work with updated Chrome WebView (not guaranteed)
 - **Android 8.0 and below**: Not recommended, requires significant code modifications
 
-If you need to support older Android versions, consider implementing the compatibility fallbacks mentioned in the troubleshooting section.
+If you need to support older Android versions, consider implementing the compatibility fallbacks mentioned in the troubleshooting section

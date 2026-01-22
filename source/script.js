@@ -18,6 +18,8 @@ var suggestedPromptsContainer = document.getElementById('suggested-prompts')
 // Get parameters from SurveyCTO fields and plugin parameters
 var SYSTEM_PROMPT = getPluginParameter('system_prompt') || ''
 var CASE_DATA = getPluginParameter('case_data') || ''
+var PROVIDER = (getPluginParameter('provider') || 'openai').toLowerCase()
+var PROXY_URL = getPluginParameter('proxy-url') || ''
 var MODEL = getPluginParameter('model') || getDefaultModel()
 var OPENAI_API_KEY = getPluginParameter('api-key') || ''
 var CLEAR_BUTTON_LABEL = getPluginParameter('clear-button-label') || ''
@@ -33,8 +35,36 @@ var RETRY_DELAY = getPluginParameter('retry-delay') || 2000 // 2 seconds
 var STREAM_TIMEOUT = getPluginParameter('stream-timeout') || 15000 // 15 seconds between chunks
 var STREAM_MAX_WAIT = getPluginParameter('stream-max-wait') || 60000 // 60 seconds total
 var ENABLE_STREAMING_FALLBACK = getPluginParameter('streaming-fallback') !== 'false' // default true
-// OpenAI is the only supported provider
 var SEND_BUTTON_LABEL = getPluginParameter('send-button-label') || 'Send'
+
+// Refresh runtime parameters (helps when multiple tests/fields switch providers)
+function refreshRuntimeParams() {
+    SYSTEM_PROMPT = getPluginParameter('system_prompt') || ''
+    CASE_DATA = getPluginParameter('case_data') || ''
+    PROXY_URL = getPluginParameter('proxy-url') || ''
+    OPENAI_API_KEY = getPluginParameter('api-key') || ''
+
+    // Read and normalize provider (trim to avoid whitespace issues)
+    var rawProvider = getPluginParameter('provider')
+    var normalizedProvider = rawProvider ? String(rawProvider).trim().toLowerCase() : ''
+
+    // Auto-detect provider from API key prefix when not explicitly provided
+    if (!normalizedProvider) {
+        if (OPENAI_API_KEY && OPENAI_API_KEY.startsWith('AIza')) {
+            normalizedProvider = 'gemini'
+        } else if (OPENAI_API_KEY && OPENAI_API_KEY.startsWith('sk-ant-')) {
+            normalizedProvider = 'anthropic'
+        } else if (OPENAI_API_KEY && OPENAI_API_KEY.startsWith('sk-')) {
+            normalizedProvider = 'openai'
+        }
+    }
+
+    PROVIDER = (normalizedProvider || 'openai')
+
+    // Model: use explicit param if present; otherwise default per resolved provider
+    var modelParam = getPluginParameter('model')
+    MODEL = modelParam || getDefaultModel()
+}
 
 // Conversation state
 var conversationState = {
@@ -50,9 +80,14 @@ var timeoutTimer = null
 var lastActivityTime = Date.now()
 var isTimedOut = false
 
-// Get default OpenAI model
+// Get default model for the selected provider
 function getDefaultModel() {
-    return 'gpt-4o-mini'
+    try {
+        var providerConfig = getProviderConfig(PROVIDER || 'openai')
+        return providerConfig.defaultModel
+    } catch (e) {
+        return 'gpt-4o-mini' // Fallback to OpenAI default
+    }
 }
 
 // Prefer max_completion_tokens for everything except known legacy families
@@ -85,8 +120,16 @@ function validateParameters() {
         errors.push('system_prompt parameter is required and cannot be empty')
     }
 
-    if (!OPENAI_API_KEY || OPENAI_API_KEY.trim().length === 0) {
-        errors.push('api-key parameter is required and cannot be empty')
+    // API key is required UNLESS using a proxy (where it can be stored in Worker env vars)
+    if (!PROXY_URL && (!OPENAI_API_KEY || OPENAI_API_KEY.trim().length === 0)) {
+        errors.push('api-key parameter is required when not using a proxy server')
+    }
+
+    // Validate provider
+    try {
+        validateProvider(PROVIDER, PROXY_URL)
+    } catch (e) {
+        errors.push(e.message)
     }
 
     if (TIMEOUT_SECONDS < 0) {
@@ -172,31 +215,59 @@ async function fetchWithTimeout(url, options, timeout = REQUEST_TIMEOUT) {
     }
 }
 
-// Send message to OpenAI with streaming support and enhanced timeout handling
-async function sendToOpenAI(messages, onStreamChunk) {
-    if (!OPENAI_API_KEY) {
-        throw new Error('OpenAI API key not provided')
+// Send message to AI provider with streaming support and enhanced timeout handling
+async function sendToAI(messages, onStreamChunk) {
+    // Ensure latest parameters from appearance are used
+    refreshRuntimeParams()
+
+    // API key validation: only required when NOT using a proxy
+    // If using proxy, the Worker will either use the X-API-Key header or its environment variables
+    if (!OPENAI_API_KEY && !PROXY_URL) {
+        throw new Error('API key not provided and no proxy configured')
     }
 
-    var requestBody = {
-        model: MODEL,
-        messages: messages,
-        temperature: 0.7,
-        stream: !!onStreamChunk
+    // Get provider adapter and config
+    var adapter = getProviderAdapter(PROVIDER)
+    var config = getProviderConfig(PROVIDER)
+    var systemPrompt = buildCompleteSystemPrompt()
+
+    // Format request using provider adapter
+    var requestBody = adapter.formatRequest(messages, systemPrompt, MODEL)
+
+    // Explicitly set stream flag so the proxy can route Gemini correctly
+    requestBody.stream = !!onStreamChunk
+
+    // Determine endpoint and headers
+    var endpoint
+    var headers = {
+        'Content-Type': 'application/json'
     }
 
-    if (usesMaxCompletionTokens(MODEL)) {
-        requestBody.max_completion_tokens = 1000
+    if (PROXY_URL) {
+        // Use proxy server
+        endpoint = PROXY_URL
+        headers['X-Provider'] = PROVIDER
+
+        // Only send API key header if provided (allows Worker to use env vars)
+        if (OPENAI_API_KEY && OPENAI_API_KEY.trim()) {
+            headers['X-API-Key'] = OPENAI_API_KEY
+        }
     } else {
-        requestBody.max_tokens = 1000
+        // Direct API call (only for OpenAI)
+        if (!config.directSupported) {
+            throw new Error(config.name + ' requires a proxy server')
+        }
+        endpoint = config.endpoint
+
+        // OpenAI uses Bearer token
+        if (PROVIDER === 'openai') {
+            headers['Authorization'] = 'Bearer ' + OPENAI_API_KEY
+        }
     }
 
-    var response = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
+    var response = await fetchWithTimeout(endpoint, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + OPENAI_API_KEY
-        },
+        headers: headers,
         body: JSON.stringify(requestBody)
     })
 
@@ -208,13 +279,14 @@ async function sendToOpenAI(messages, onStreamChunk) {
         } catch (e) {
             throw new Error('HTTP ' + response.status + ': ' + response.statusText)
         }
-        throw new Error('OpenAI API error: ' + (errorData.error?.message || response.statusText))
+        var errorMessage = adapter.parseError(errorData)
+        throw new Error(config.name + ' API error: ' + errorMessage)
     }
 
     // Handle non-streaming response
     if (!onStreamChunk) {
         var data = await response.json()
-        return data.choices[0].message.content
+        return adapter.parseResponse(data)
     }
 
     // Handle streaming response with enhanced timeout handling
@@ -264,22 +336,14 @@ async function sendToOpenAI(messages, onStreamChunk) {
 
             for (var i = 0; i < lines.length; i++) {
                 var line = lines[i].trim()
-                if (line === '' || line === 'data: [DONE]') continue
 
-                if (line.startsWith('data: ')) {
-                    try {
-                        var data = JSON.parse(line.substring(6))
-                        var content = data.choices && data.choices[0] && data.choices[0].delta && data.choices[0].delta.content
+                // Use provider adapter to parse stream chunks
+                var content = adapter.parseStreamChunk(line)
 
-                        if (content) {
-                            fullResponse += content
-                            if (onStreamChunk) {
-                                onStreamChunk(content, fullResponse)
-                            }
-                        }
-                    } catch (e) {
-                        // Skip invalid JSON chunks
-                        continue
+                if (content) {
+                    fullResponse += content
+                    if (onStreamChunk) {
+                        onStreamChunk(content, fullResponse)
                     }
                 }
             }
@@ -295,6 +359,9 @@ async function sendToOpenAI(messages, onStreamChunk) {
 
     return fullResponse
 }
+
+// Keep backward compatibility alias
+var sendToOpenAI = sendToAI
 
 // Retry wrapper with exponential backoff
 async function sendToOpenAIWithRetry(messages, onStreamChunk, retryCount = 0) {
@@ -537,27 +604,17 @@ function handleConversationEnd(specialCode) {
 }
 
 // Generate response with streaming
-async function generateResponseWithStreaming(userMessage, onStreamChunk) {
-    var completeSystemPrompt = buildCompleteSystemPrompt()
-
-    var messages = [
-        { role: 'system', content: completeSystemPrompt },
-        ...conversationState.messages,
-        { role: 'user', content: userMessage }
-    ]
-
+async function generateResponseWithStreaming(onStreamChunk) {
+    // The user message is already added to conversationState.messages in sendMessage()
+    var messages = [...conversationState.messages]
     return await sendToOpenAIWithFallback(messages, onStreamChunk)
 }
 
 // Generate initial response with streaming
 async function generateInitialResponseWithStreaming(onStreamChunk) {
-    var completeSystemPrompt = buildCompleteSystemPrompt()
-
     var messages = [
-        { role: 'system', content: completeSystemPrompt },
         { role: 'user', content: CONVERSATION_STARTER }
     ]
-
     return await sendToOpenAIWithFallback(messages, onStreamChunk)
 }
 
@@ -633,7 +690,7 @@ async function sendMessage() {
             streamingElements = addStreamingMessageToUI('assistant', '')
 
             // Generate response with streaming
-            fullResponse = await generateResponseWithStreaming(message, function (chunk, fullContent) {
+            fullResponse = await generateResponseWithStreaming(function (chunk, fullContent) {
                 updateStreamingMessage(streamingElements, chunk, fullContent)
             })
 
@@ -643,7 +700,7 @@ async function sendMessage() {
             // Non-streaming fallback
             loadingIndicator.querySelector('span').textContent = 'Getting response...'
 
-            fullResponse = await generateResponseWithStreaming(message, null)
+            fullResponse = await generateResponseWithStreaming(null)
 
             loadingIndicator.style.display = 'none'
             addMessageToUI('assistant', fullResponse, true)
@@ -662,7 +719,7 @@ async function sendMessage() {
         clearUnsentInput()
 
     } catch (error) {
-        console.error('Error sending message:', error)
+        // Error handling - don't log error details in production as they may contain sensitive info
 
         // Remove the failed user message from conversation state
         if (conversationState.messages.length > 0 &&
@@ -683,7 +740,7 @@ async function sendMessage() {
             errorMessage = 'Rate limit exceeded. Please wait a moment and try again.'
         } else if (error.message.includes('insufficient_quota')) {
             errorMessage = 'API quota exceeded. Please check your OpenAI account.'
-        } else if (error.message.includes('timeout') || error.message.includes('Stream') || error.message.includes('chunk')) {
+        } else if (error.message.includes('timeout') || error.message.includes('Stream') || error.message.includes('chunk') || error.message.includes('Empty response received from stream')) {
             errorMessage = 'Connection interrupted. Your message was saved - please try sending again.'
             useStreaming = false // Try non-streaming on next attempt
         } else if (error.message.includes('Failed after')) {
@@ -907,8 +964,6 @@ function resetActivityTimer() {
 }
 
 function handleTimeout() {
-    console.log('Interaction timed out after', TIMEOUT_SECONDS, 'seconds of inactivity')
-
     isTimedOut = true
 
     var timeoutMessage = `Session timed out after ${TIMEOUT_SECONDS} seconds of inactivity. Interaction has been locked.`
@@ -953,6 +1008,8 @@ async function initializeConversation() {
     }
 
     try {
+        // Refresh params at initialization time
+        refreshRuntimeParams()
 
         var validationErrors = validateParameters()
         if (validationErrors.length > 0) {
@@ -977,7 +1034,7 @@ async function initializeConversation() {
                 savedMessages = JSON.parse(conversationData.value)
                 conversationState.messages = savedMessages
             } catch (e) {
-                console.error('Error parsing saved conversation:', e)
+                // Error parsing saved conversation - reset to empty
                 savedMessages = []
                 conversationState.messages = []
             }
@@ -1017,7 +1074,7 @@ async function initializeConversation() {
                     saveConversation()
                 }
             } catch (error) {
-                console.error('Error generating initial response:', error)
+                // Error handling - don't log error details in production as they may contain sensitive info
 
                 // Clean up streaming UI if it exists
                 if (streamingElements && streamingElements.messageDiv) {
@@ -1060,7 +1117,7 @@ async function initializeConversation() {
         updateButtonVisibility()
 
     } catch (error) {
-        console.error('Error during conversation initialization:', error)
+        // Error handling - don't log error details in production as they may contain sensitive info
         conversationDisplay.innerHTML = ''
         addMessageToUI('assistant', `Error initializing conversation: ${error.message}. Please check your parameters and try again.`, true)
         conversationState.initialized = true
